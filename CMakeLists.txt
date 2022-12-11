@@ -69,6 +69,7 @@ function(sge_add_executable target_name src_path)
 	
 	add_executable(${target_name} ${src_files})	
 	target_precompile_headers(${target_name} PUBLIC src/${target_name}-pch.h)
+	target_include_directories(${target_name} PUBLIC src)
 	sge_set_target_warning_level(${target_name})	
 	sge_set_target_unity_build_mode(${target_name})
 endfunction()

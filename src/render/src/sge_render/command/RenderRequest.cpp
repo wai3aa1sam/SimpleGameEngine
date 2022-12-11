@@ -9,10 +9,30 @@ RenderRequest::RenderRequest() {
 	light_color = Vec3f(1,1,1);
 }
 
+void RenderRequest::reset(RenderContext* ctx)
+{
+	_renderContext = ctx;
+	commandBuffer.reset(ctx);
+
+	_inlineDraw.reset();
+}
+
 void RenderRequest::reset(RenderContext* ctx, Math::Camera3f& camera) {
 	_renderContext = ctx;
 	commandBuffer.reset(ctx);
 
+	setCamera(camera);
+
+	if (lineMaterial) {
+		auto mvp = matrix_proj * matrix_view;
+		lineMaterial->setParam("sge_matrix_mvp", mvp);
+	}
+
+	_inlineDraw.reset();
+}
+
+void RenderRequest::setCamera(Math::Camera3f& camera)
+{
 	matrix_view   = camera.viewMatrix();
 	matrix_proj   = camera.projMatrix();
 	cameraPos     = camera.pos();
@@ -22,8 +42,6 @@ void RenderRequest::reset(RenderContext* ctx, Math::Camera3f& camera) {
 		auto mvp = matrix_proj * matrix_view;
 		lineMaterial->setParam("sge_matrix_mvp", mvp);
 	}
-
-	_inlineDraw.reset();
 }
 
 void RenderRequest::setMaterialCommonParams(Material* mtl, const Mat4f& matrix) {

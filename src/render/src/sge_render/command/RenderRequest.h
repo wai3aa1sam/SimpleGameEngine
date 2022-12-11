@@ -25,7 +25,9 @@ public:
 
 	RenderRequest();
 
+	void reset(RenderContext* ctx);
 	void reset(RenderContext* ctx, Math::Camera3f& camera);
+	void setCamera(Math::Camera3f& camera);
 
 	//TODO: move to separate cbuffer
 	void setMaterialCommonParams(Material* mtl, const Mat4f& matrix);

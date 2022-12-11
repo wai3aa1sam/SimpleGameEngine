@@ -12,6 +12,8 @@ public:
 
 	MSG _win32_msg;
 
+	void pollEvent();
+
 protected:
 	virtual void onCreate(CreateDesc& desc) override;
 	virtual void onRun	() override;

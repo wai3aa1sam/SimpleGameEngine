@@ -1,3 +1,7 @@
+#include <sge_render-pch.h>
+
+#if SGE_RENDER_HAS_DX11
+
 #include "RenderContext_DX11.h"
 #include "Renderer_DX11.h"
 #include "RenderGpuBuffer_DX11.h"
@@ -50,9 +54,9 @@ void RenderContext_DX11::onCmd_DrawCall(RenderCommand_DrawCall& cmd) {
 	if (!cmd.vertexLayout) { SGE_ASSERT(false); return; }
 
 	auto* vertexBuffer = static_cast<RenderGpuBuffer_DX11*>(cmd.vertexBuffer.ptr());
-//	if (!vertexBuffer) { SGE_ASSERT(false); return; }
+	//	if (!vertexBuffer) { SGE_ASSERT(false); return; }
 
-//	if (cmd.vertexCount <= 0) { SGE_ASSERT(false); return; }
+	//	if (cmd.vertexCount <= 0) { SGE_ASSERT(false); return; }
 	if (cmd.primitive == RenderPrimitiveType::None) { SGE_ASSERT(false); return; }
 
 	RenderGpuBuffer_DX11* indexBuffer = nullptr;
@@ -84,7 +88,7 @@ void RenderContext_DX11::onCmd_DrawCall(RenderCommand_DrawCall& cmd) {
 	DX11_ID3DBuffer* ppVertexBuffers[] = { vertexBuffer ? vertexBuffer->d3dBuf() : nullptr };
 	ctx->IASetVertexBuffers(0, 1, ppVertexBuffers, &stride, &vertexOffset);
 
-//	_renderer->validateContext();
+	//	_renderer->validateContext();
 
 	if (indexCount > 0) {
 		auto indexType = Util::getDxFormat(cmd.indexType);
@@ -156,10 +160,10 @@ void RenderContext_DX11::onSetFrameBufferSize(Vec2f newSize) {
 	_depthStencilView.reset(nullptr);
 
 	auto hr = _swapChain->ResizeBuffers(0
-								, static_cast<UINT>(Math::max(0.0f, newSize.x))
-								, static_cast<UINT>(Math::max(0.0f, newSize.y))
-								, DXGI_FORMAT_UNKNOWN
-								, 0);
+		, static_cast<UINT>(Math::max(0.0f, newSize.x))
+		, static_cast<UINT>(Math::max(0.0f, newSize.y))
+		, DXGI_FORMAT_UNKNOWN
+		, 0);
 	Util::throwIfError(hr);
 }
 
@@ -304,7 +308,7 @@ void RenderContext_DX11::_setTestDefaultRenderState() {
 
 	ctx->RSSetState(_testRasterizerState);
 	ctx->OMSetDepthStencilState(_testDepthStencilState, 1);
-	
+
 	Color4f blendColor(1,1,1,1);
 	ctx->OMSetBlendState(_testBlendState, blendColor.data, 0xffffffff);
 }
@@ -339,10 +343,10 @@ DX11_ID3DInputLayout* RenderContext_DX11::_getTestInputLayout(const VertexLayout
 
 	auto* dev = _renderer->d3dDevice();
 	auto hr = dev->CreateInputLayout(inputDesc.data()
-									, static_cast<UINT>(inputDesc.size())
-									, _testVertexShaderBytecode->GetBufferPointer()
-									, _testVertexShaderBytecode->GetBufferSize()
-									, outLayout.ptrForInit());
+		, static_cast<UINT>(inputDesc.size())
+		, _testVertexShaderBytecode->GetBufferPointer()
+		, _testVertexShaderBytecode->GetBufferSize()
+		, outLayout.ptrForInit());
 	Util::throwIfError(hr);
 
 	_testInputLayouts[src] = outLayout;
@@ -350,3 +354,5 @@ DX11_ID3DInputLayout* RenderContext_DX11::_getTestInputLayout(const VertexLayout
 }
 
 }
+
+#endif // SGE_RENDER_HAS_DX11

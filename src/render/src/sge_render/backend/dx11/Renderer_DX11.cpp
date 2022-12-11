@@ -1,3 +1,7 @@
+#include <sge_render-pch.h>
+
+#if SGE_RENDER_HAS_DX11
+
 #include "Renderer_DX11.h"
 #include "RenderContext_DX11.h"
 #include "RenderGpuBuffer_DX11.h"
@@ -19,15 +23,15 @@ Renderer_DX11::Renderer_DX11(CreateDesc& desc) {
 
 	HRESULT hr;
 	hr = D3D11CreateDevice(	nullptr,
-							D3D_DRIVER_TYPE_HARDWARE,
-							nullptr,
-							createDeviceFlags,
-							nullptr,
-							0, 
-							D3D11_SDK_VERSION,
-							d3dDevice.ptrForInit(),
-							&featureLevel,
-							d3dDeviceContext.ptrForInit());
+		D3D_DRIVER_TYPE_HARDWARE,
+		nullptr,
+		createDeviceFlags,
+		nullptr,
+		0, 
+		D3D11_SDK_VERSION,
+		d3dDevice.ptrForInit(),
+		&featureLevel,
+		d3dDeviceContext.ptrForInit());
 	Util::throwIfError(hr);
 	//This method returns DXGI_ERROR_SDK_COMPONENT_MISSING if you specify D3D11_CREATE_DEVICE_DEBUG in Flags
 	//and the incorrect version of the debug layer is installed on your computer. Install the latest Windows SDK to get the correct version.
@@ -83,8 +87,8 @@ Renderer_DX11::Renderer_DX11(CreateDesc& desc) {
 		_adapterInfo.memorySize = ad.DedicatedVideoMemory;
 
 		SGE_LOG("Render Adapter\n  name={}\n  mem={}G"
-					, _adapterInfo.adapterName
-					, Math::byteToG(_adapterInfo.memorySize));
+			, _adapterInfo.adapterName
+			, Math::byteToG(_adapterInfo.memorySize));
 	}
 
 	hr = _dxgiAdapter->GetParent(IID_PPV_ARGS(_dxgiFactory.ptrForInit()));
@@ -127,3 +131,5 @@ void Renderer_DX11::validateContext() {
 
 
 }
+
+#endif // SGE_RENDER_HAS_DX11

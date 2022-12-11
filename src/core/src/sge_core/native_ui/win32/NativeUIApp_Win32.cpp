@@ -27,6 +27,16 @@ void NativeUIApp_Win32::onQuit() {
 	::PostQuitMessage(_exitCode);
 }
 
+void NativeUIApp_Win32::pollEvent()
+{
+	while (PeekMessageW(&_win32_msg, NULL, 0, 0, PM_REMOVE))
+	{
+		TranslateMessage(&_win32_msg);
+		DispatchMessage(&_win32_msg);
+	}
+}
+
+
 }
 
 #endif
