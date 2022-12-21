@@ -235,7 +235,7 @@ void RenderTerrain::PatchIndices::create(Terrain* terrain, int level, ZoneMask z
 void RenderTerrain::PatchIndices::_addToIndices(Vector<VertexIndex>& indexData, Span<Vec2i> sector, int verticesPerRow, Vec2i direction, bool flipXY) {
 	auto w = verticesPerRow;
 	Vec2i center(w/2, w/2);
-	int verticesPerPatch = verticesPerRow * verticesPerRow;
+	int verticesPerPatch = verticesPerRow * verticesPerRow; SGE_UNUSED(verticesPerPatch);
 
 	Span<VertexIndex>	dstSpan;
 	{

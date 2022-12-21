@@ -3,11 +3,28 @@
 namespace sge {
 
 namespace Math {
+	
+
 	template<class T> constexpr T max(const T& a, const T& b) { return a > b ? a : b; }
 	template<class T> constexpr T min(const T& a, const T& b) { return a < b ? a : b; }
 
+	template<class T> inline constexpr T max(const std::initializer_list<T>& initList) 
+	{
+		T res;
+		auto beg = initList.begin();
+		auto end = initList.end();
+		auto& v = *beg;
+		res = max(v, *(++beg));
+		while (beg != end)
+		{
+			res = max(res, *beg);
+			++beg;
+		}
+		return res;
+	}
+
 	template<class T> constexpr T clamp		(const T& v, const T& a, const T& b) { return max(a, min(v, b)) ; }
-	template<class T> constexpr T clamp01	(const T& v) { return clamp(v, 0, 1); }
+	template<class T> constexpr T clamp01	(const T& v) { return clamp(v, T(0), T(1)); }
 	template<class T> constexpr T saturate	(const T& v) { return clamp01(v); }
 
 	template<class T> constexpr T byteToK(const T& v) { return v / 1024; }
@@ -122,6 +139,14 @@ namespace Math {
 	SGE_INLINE void sincos( double rad, double & out_sin, double & out_cos ) { out_sin = sin(rad); out_cos = cos(rad); }
 #endif
 
+	SGE_INLINE float  asin(float  rad) { return ::asinf(rad); }
+	SGE_INLINE double asin(double rad) { return ::asin (rad); }
+
+	SGE_INLINE float  acos(float  rad) { return ::acosf(rad); }
+	SGE_INLINE double acos(double rad) { return ::acos (rad); }
+
+	SGE_INLINE float  atan(float  rad) { return ::atanf(rad); }
+	SGE_INLINE double atan(double rad) { return ::atan (rad); }
 
 #if 0
 #pragma mark ----------------

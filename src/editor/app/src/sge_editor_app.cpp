@@ -22,7 +22,7 @@ int main() {
 	_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
 	_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
 
-	_CrtMemState checkPoint1;
+	_CrtMemState checkPoint1; SGE_UNUSED(checkPoint1);
 	_CrtMemCheckpoint(&checkPoint1);
 
 	int exitCode = 0;
@@ -34,10 +34,10 @@ int main() {
 		exitCode = app.run(desc);
 	}
 
-	_CrtMemState checkPoint2;
+	_CrtMemState checkPoint2; SGE_UNUSED(checkPoint2);
 	_CrtMemCheckpoint(&checkPoint2);
 
-	_CrtMemState diff;
+	_CrtMemState diff; SGE_UNUSED(diff);
 	if (_CrtMemDifference(&diff, &checkPoint1, &checkPoint2)) {
 		_CrtMemDumpStatistics(&diff);
 	}

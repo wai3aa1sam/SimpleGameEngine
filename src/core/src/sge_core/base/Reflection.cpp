@@ -20,4 +20,6 @@ SGE_TYPEOF_SIMPLE_IMP(char16_t,	"char16")
 SGE_TYPEOF_SIMPLE_IMP(char32_t,	"char32")
 SGE_TYPEOF_SIMPLE_IMP(wchar_t,	"wchar")
 
+SGE_TYPEOF_SIMPLE_IMP(bool,		"bool")
+
 }

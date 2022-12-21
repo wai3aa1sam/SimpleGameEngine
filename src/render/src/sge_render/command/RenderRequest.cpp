@@ -1,4 +1,6 @@
 #include "RenderRequest.h"
+#include <sge_render/Renderer.h>
+#include <sge_render/RenderContext.h>
 
 namespace sge {
 
@@ -105,6 +107,19 @@ void RenderRequest::drawSubMesh(const SrcLoc& debugLoc, const RenderSubMesh& sub
 	}
 }
 
+void RenderRequest::drawLine(Vec3f pt0, Vec3f pt1, const Color4b& color)
+{
+	Vertex_PosColor pts[2];
+	u16 indices[] = { 0,1, };
+	pts[0].pos		= pt0;
+	pts[0].color[0] = color;
+
+	pts[1].pos		= pt1;
+	pts[1].color[0] = color;
+
+	drawLines(pts, indices);
+}
+
 void RenderRequest::drawLines(Span<Vertex_PosColor> points, Span<u16> indices) {
 	if (indices.size() <= 0) return;
 
@@ -180,6 +195,14 @@ void RenderRequest::drawBoundingBox(const BBox3f& bbox, const Color4b& color, co
 						3,7};
 
 	drawLines(vertices, indices);
+}
+
+void RenderRequest::drawBoundingBox(const Vec3f& pos, const Vec3f& size, const Color4b& color)
+{
+	BBox3f bbox;
+	bbox.min = { -1.0, -1.0, -1.0 };
+	bbox.max = {  1.0,  1.0,  1.0 };
+	drawBoundingBox(bbox, color, Mat4f::s_TS(pos, size));
 }
 
 void RenderRequest::drawBoundingBox(const RenderMesh& mesh, const Color4b& color, const Mat4f& mat) {

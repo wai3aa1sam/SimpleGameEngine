@@ -72,4 +72,12 @@ template<> SGE_INLINE Vec3d_SSE Vec3d_SSE::operator-(const Vec3& r) const { retu
 template<> SGE_INLINE Vec3d_SSE Vec3d_SSE::operator*(const Vec3& r) const { return Vec3_SSE_make(_mm256_mul_pd(_m, r._m)); }
 template<> SGE_INLINE Vec3d_SSE Vec3d_SSE::operator/(const Vec3& r) const { return Vec3_SSE_make(_mm256_div_pd(_m, r._m)); }
 
+
+template<class T>
+template<class M>
+SGE_INLINE Tuple3<T>::Tuple3(const Vec3_Basic<T, M>& sse_data)
+{
+	set(sse_data.x, sse_data.y, sse_data.z);
+}
+
 }

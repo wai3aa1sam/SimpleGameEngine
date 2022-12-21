@@ -147,6 +147,7 @@ void EditorLayer::create()
 			"Assets/Terrain/TerrainTest/TerrainHeight_Small.png");
 	}
 
+#if 0
 	{ // ECS
 		EditMesh editMesh;
 		WavefrontObjLoader::loadFile(editMesh, "Assets/Mesh/box.obj");
@@ -190,6 +191,14 @@ void EditorLayer::create()
 
 		//			editor->entitySelection.add(EntityId(1));
 		editor->entitySelection.add(EntityId(3));
+}
+#endif // 0
+
+	{
+		EngineContext::instance()->registerComponentType<CBoids>();
+		_boidsEnt = _scene.addEntity("Boids");
+		auto* cBoids = _boidsEnt->addComponent<CBoids>();
+		cBoids->_boids.start();
 	}
 }
 
@@ -203,19 +212,20 @@ void EditorLayer::onRender(RenderContext& rdCtx_, RenderData& rdData_)
 	_camera.setViewport(clientRect);
 	rdReq.setCamera(_camera);
 
-	{// debug culling
-		auto fov = _camera.fov();
-		_camera.setFov(fov / 2);
-		rdReq.cameraFrustum = _camera.frustum();
-		_camera.setFov(fov);
-	}
-
 	rdReq.debug.drawBoundingBox = true;
 
 	rdReq.lineMaterial = _lineMaterial;
 	//		rdReq.matrix_model = Mat4f::s_identity();
 
 	rdReq.clearFrameBuffers()->setColor({0, 0, 0.2f, 1});
+
+#if 0
+	{// debug culling
+		auto fov = _camera.fov();
+		_camera.setFov(fov / 2);
+		rdReq.cameraFrustum = _camera.frustum();
+		_camera.setFov(fov);
+	}
 
 	//-----
 	//		auto time = GetTickCount() * 0.001f;
@@ -228,15 +238,30 @@ void EditorLayer::onRender(RenderContext& rdCtx_, RenderData& rdData_)
 	rdReq.drawFrustum(rdReq.cameraFrustum, Color4b(100, 255, 100, 255));
 
 	rdReq.drawMesh(SGE_LOC, _renderMesh, _material);
+	CRendererSystem::instance()->render(rdReq);
 
 	//		_terrain.render(_renderRequest);
 
-	CRendererSystem::instance()->render(rdReq);
+#else
+
+	auto* cBoids = _boidsEnt->getComponent<CBoids>();
+	cBoids->_boids.update();
+	cBoids->_boids.render(rdReq);
+
+#endif // 0
+
+
+
 
 	_hierarchyWindow.draw(rdReq, _scene);
 	_inspectorWindow.draw(rdReq, _scene);
 
-	//		ImGui::ShowDemoWindow(nullptr);
+	{
+		auto win = EditorUI::Window("test");
+		ImGui::Text(Fmt("Framerate: {}", ImGui::GetIO().Framerate).c_str());
+	}
+	
+	//ImGui::ShowDemoWindow(nullptr);
 }
 
 void EditorLayer::onUIMouseEvent(UIMouseEvent& ev) {

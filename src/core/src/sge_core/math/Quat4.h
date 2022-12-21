@@ -31,6 +31,7 @@ public:
 			Vec3 axis () const;
 
 	static	Quat4 s_euler(const Vec3& r);
+	static	Quat4 s_eulerDeg(const Vec3& deg) { return s_euler(Vec3(Math::radians(deg.x), Math::radians(deg.y), Math::radians(deg.z))); };
 	static	Quat4 s_eulerX(T rad)	{ T s, c; Math::sincos(rad * T(0.5), s, c); return Quat4(s,0,0,c); }
 	static	Quat4 s_eulerY(T rad)	{ T s, c; Math::sincos(rad * T(0.5), s, c); return Quat4(0,s,0,c); }
 	static	Quat4 s_eulerZ(T rad)	{ T s, c; Math::sincos(rad * T(0.5), s, c); return Quat4(0,0,s,c); }
@@ -38,6 +39,8 @@ public:
 	static	Quat4 s_eulerDegX(T deg)	{ return s_eulerX(Math::radians(deg)); }
 	static	Quat4 s_eulerDegY(T deg)	{ return s_eulerY(Math::radians(deg)); }
 	static	Quat4 s_eulerDegZ(T deg)	{ return s_eulerZ(Math::radians(deg)); }
+
+	static Quat4 s_fromToRotation(const Vec3& from, const Vec3& to);
 
 			void setEuler(const Vec3& r)	{ *this = s_euler(r); }
 			void setEulerX(T rad) { *this = s_eulerX(rad); }
@@ -56,7 +59,12 @@ public:
 	Quat4 conjugate() const;
 	Quat4 inverse() const;
 
-			T dot(const Quat4& r) const { return (x * r.x + y * r.y) + (z * r.z + w * r.w); }
+	Quat4 normalize() const;
+
+	T dot(const Quat4& r) const { return (x * r.x + y * r.y) + (z * r.z + w * r.w); }
+
+	bool operator==(const Quat4& r) const { return x == r.x && y == r.y && z == r.z && w == r.w; }
+	bool operator!=(const Quat4& r) const { return !operator==(r); }
 
 	Quat4 operator*(const Quat4& r) const;
 	Vec3 operator*(const Vec3& v) const;
@@ -162,6 +170,13 @@ Quat4<T> Quat4<T>::inverse() const {
 }
 
 template<class T> inline
+Quat4<T> Quat4<T>::normalize() const
+{
+	T mag = Math::sqrt(x * x + y * y + z * z + w * w);
+	return Quat4(x / mag, y / mag, z / mag, w / mag);
+}
+
+template<class T> inline
 Vec3<T> Quat4<T>::operator*(const Vec3& v) const {
 	Vec3 qv(x, y, z);
 	auto uv  = qv.cross(v);
@@ -183,6 +198,33 @@ Quat4<T> Quat4<T>::s_angleAxis(T rad, const Vec3& axis) {
 	Math::sincos(rad * T(0.5), s, c);
 	return Quat4(axis.x * s, axis.y * s, axis.z * s, c);
 }
+
+template<class T> inline
+Quat4<T> Quat4<T>::s_fromToRotation(const Vec3& from, const Vec3& to)
+{
+	// Based on Stan Melax's article in Game Programming Gems
+	// Copy, since cannot modify local
+	Vec3 u = from.normalize();
+	Vec3 v = to.normalize();
+	
+	const f32 cos_theta = u.dot(v);
+
+	if (Math::equals(cos_theta, T(1.0))) // both are same
+	{
+		return s_identity();
+	}
+	else if (Math::equals(cos_theta, T(-1.0))) // exactly opposite
+	{
+		auto orth = u.orthogonal();
+		return Quat4(orth.x, orth.y, orth.z, 0);
+	}
+	
+	T offset = Math::sqrt(from.sqrMagnitude() * to.sqrMagnitude());
+	Vec3 dir = u.cross(v);
+	Quat4 ret = Quat4{ dir.x, dir.y, dir.z, cos_theta + offset };
+	return ret.normalize();
+}
+
 
 using Quat4f = Quat4<float>;
 using Quat4d = Quat4<double>;

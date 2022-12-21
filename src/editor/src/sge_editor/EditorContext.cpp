@@ -1,3 +1,4 @@
+#include <sge_editor-pch.h>
 #include "EditorContext.h"
 
 namespace sge {
@@ -25,6 +26,9 @@ EditorContext::EditorContext() {
 		registerPropertyDrawer(TypeOf<T>(), &d); \
 	} \
 //---
+	E(bool)
+	E(u64)
+	E(i32)
 	E(float)
 	E(Vec3f)
 #undef E

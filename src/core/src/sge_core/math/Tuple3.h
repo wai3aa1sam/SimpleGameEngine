@@ -2,6 +2,9 @@
 
 namespace sge {
 
+template<class T, class M> struct Vec3_SSE_Data;
+template<class T, class M> struct Vec3_Basic;
+
 template<class T>
 struct Tuple3 {
 	using ElementType = T;
@@ -17,6 +20,10 @@ struct Tuple3 {
 
 	SGE_INLINE Tuple3() = default;
 	SGE_INLINE Tuple3(const T& x_, const T& y_, const T& z_) { set(x_, y_, z_); }
+
+	template<class M>
+	SGE_INLINE explicit Tuple3(const Vec3_Basic<T, M>& sse_data);
+
 
 	SGE_INLINE void set(const Tuple3<T>& v) { *this = v; }
 	SGE_INLINE void set(const T& x_, const T& y_, const T& z_) {

@@ -61,5 +61,20 @@ public:
 	virtual void draw(DrawRequest& req) override;
 };
 
+class EditorPropertyDrawer_bool : public EditorPropertyDrawer {
+public:
+	virtual void draw(DrawRequest& req) override;
+};
+
+class EditorPropertyDrawer_i32 : public EditorPropertyDrawer {
+public:
+	virtual void draw(DrawRequest& req) override;
+};
+
+class EditorPropertyDrawer_u64 : public EditorPropertyDrawer {
+public:
+	virtual void draw(DrawRequest& req) override;
+};
+
 
 }

@@ -33,12 +33,19 @@ public:
 	SGE_INLINE static Vec3 s_right()	{ return Vec3( 1 ,0, 0); }
 	SGE_INLINE static Vec3 s_left()		{ return Vec3(-1 ,0, 0); }
 
+	SGE_INLINE static Vec3 s_xAxis() { return { 1.0, 0.0, 0.0 }; }
+	SGE_INLINE static Vec3 s_yAxis() { return { 0.0, 1.0, 0.0 }; }
+	SGE_INLINE static Vec3 s_zAxis() { return { 0.0, 0.0, 1.0 }; }
+
 	SGE_INLINE static Vec3 s_inf()		{ auto f = Math::inf<T>(); return Vec3(f,f,f); }
 
 	SGE_INLINE Vec3() = default;
 	SGE_INLINE Vec3(const Tuple3<T> & v) { set(v); }
 	SGE_INLINE Vec3(const T& x_, const T& y_, const T& z_) { set(x_, y_, z_); }
 	SGE_INLINE Vec3(const Vec2& v, const T& z_) { set(v.x, v.y, z_); }
+
+	template<class M>
+	SGE_INLINE Vec3(const Vec3_Basic<T, M> & v) { set(v.x, v.y, v.z); }
 
 	SGE_INLINE void set(const Tuple3<T> & v) { DATA::set(v); }
 	SGE_INLINE void set(const T& x_, const T& y_, const T& z_) { set(Tuple3<T>(x_, y_, z_)); }
@@ -50,6 +57,8 @@ public:
 	SGE_INLINE bool isAll (const T& v) { return equals(Vec3(v,v,v)); }
 
 //----
+	SGE_INLINE Vec3 operator-() { x = -x, y = -y; z = -z; return *this; }
+
 	SGE_INLINE Vec3 operator+(const Vec3& r) const { return Vec3(x + r.x, y + r.y, z + r.z); }
 	SGE_INLINE Vec3 operator-(const Vec3& r) const { return Vec3(x - r.x, y - r.y, z - r.z); }
 	SGE_INLINE Vec3 operator*(const Vec3& r) const { return Vec3(x * r.x, y * r.y, z * r.z); }
@@ -90,6 +99,26 @@ public:
 
 	SGE_NODISCARD Vec3 normalize() const { T m = magnitude(); return Math::equals0(m) ? s_zero() : (*this / m); }
 
+	SGE_NODISCARD Vec3 clampMag(const T& maxMag) const;
+
+	Vec3 orthogonal() const
+	{
+		T x0 = Math::abs(this->x);
+		T y0 = Math::abs(this->y);
+		T z0 = Math::abs(this->z);
+
+		Vec3 other = x0 < y0 ? (x0 < z0 ? s_xAxis() : s_zAxis()) : (y0 < z0 ? s_yAxis() : s_zAxis());
+		return this->cross(other);
+	}
+
+	Vec3 reflect(const Vec3& normal) const
+	{
+		//auto n = normalize();
+		const auto& n = normal;
+		auto d = dot(n);
+		return *this - n * (d * T(2.0));
+	}
+
 	SGE_INLINE	Vec2	xy() const { return Vec2(x,y); }
 	SGE_INLINE	Vec2	xz() const { return Vec2(x,z); }
 
@@ -100,8 +129,10 @@ public:
 		fmt::format_to(ctx.out(), "({}, {}, {})", x, y, z);
 	}
 
-	template<class R>
-	static Vec3 s_cast(const Vec3_Basic<R>& r) { return Vec3(static_cast<T>(r.x), static_cast<T>(r.y), static_cast<T>(r.z)); }
+	SGE_NODISCARD static Vec3 s_clampMag(const Vec3& v, T maxMag) { return v.clampMag(maxMag); }
+
+	template<class R, class M>
+	static Vec3 s_cast(const Vec3_Basic<R, M>& r) { return Vec3(static_cast<T>(r.x), static_cast<T>(r.y), static_cast<T>(r.z)); }
 };
 
 using Vec3f_Basic = Vec3_Basic<float>;
@@ -128,6 +159,9 @@ bool Vec3_Basic<T, DATA>::equals0(const T& epsilon) const {
 		&& Math::equals0(z, epsilon);
 }
 
+template<class T, class DATA> SGE_INLINE
+Vec3_Basic<T, DATA> Vec3_Basic<T, DATA>::clampMag(const T& maxMag) const { return Vec3(Math::min(x, maxMag), Math::min(y, maxMag), Math::min(z, maxMag)); }
+
 namespace Math {
 
 template<class T, class DATA> SGE_INLINE
@@ -139,18 +173,35 @@ void sincos(const Vec3_Basic<T, DATA>& th, Vec3_Basic<T, DATA>& outSin, Vec3_Bas
 
 template<class T, class DATA> SGE_INLINE
 Vec3_Basic<T, DATA> min(const Vec3_Basic<T, DATA>& a, const Vec3_Basic<T, DATA>& b) {
-	return Vec3_Basic<T, DATA>(	Math::min(a.x, b.x),
+	return Vec3_Basic<T, DATA>( Math::min(a.x, b.x),
 								Math::min(a.y, b.y),
 								Math::min(a.z, b.z));
 }
 
 template<class T, class DATA> SGE_INLINE
 Vec3_Basic<T, DATA> max(const Vec3_Basic<T, DATA>& a, const Vec3_Basic<T, DATA>& b) {
-	return Vec3_Basic<T, DATA>(	Math::max(a.x, b.x),
+	return Vec3_Basic<T, DATA>( Math::max(a.x, b.x),
 								Math::max(a.y, b.y),
 								Math::max(a.z, b.z));
 }
 
+template<class T, class DATA> SGE_INLINE constexpr
+Vec3_Basic<T, DATA> clamp(const Vec3_Basic<T, DATA>& v, const Vec3_Basic<T, DATA>& a, const Vec3_Basic<T, DATA>& b) {
+	return Vec3_Basic<T, DATA>(	Math::clamp(v.x, a.x, b.x),
+								Math::clamp(v.y, a.y, b.y),
+								Math::clamp(v.z, a.z, b.z));
 }
+
+template<class T, class DATA, class W> SGE_INLINE
+Vec3_Basic<T, DATA> lerp(const Vec3_Basic<T, DATA>& a, const Vec3_Basic<T, DATA>& b, const W& weight) {
+	return Vec3_Basic<T>(
+			lerp(a.x, b.x, weight),
+			lerp(a.y, b.y, weight),
+			lerp(a.z, b.z, weight)
+		);
+}
+
+}
+
 
 }

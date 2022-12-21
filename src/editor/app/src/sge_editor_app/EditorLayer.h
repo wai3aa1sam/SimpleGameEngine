@@ -1,6 +1,15 @@
 #pragma once
 #include "EditorApp.h"
 
+#include <sge_engine/feature/boids/Boids.h>
+
+#if 0
+#pragma mark --- XXXX-Impl ---
+#endif // 0
+#if 1
+
+#endif
+
 namespace sge {
 
 class EditorLayer_Base : public NonCopyable
@@ -25,6 +34,12 @@ protected:
 	void onRender(RenderContext& rdCtx_, RenderData& rdData_);
 
 private:
+	EditorHierarchyWindow		_hierarchyWindow;
+	EditorInspectorWindow		_inspectorWindow;
+
+	Math::Camera3f		_camera;
+	Scene				_scene;
+
 	SPtr<Shader>		_shader;
 
 	SPtr<Material>		_lineMaterial;
@@ -38,11 +53,7 @@ private:
 
 	RenderTerrain		_terrain;
 
-	Math::Camera3f		_camera;
-	Scene				_scene;
-
-	EditorHierarchyWindow		_hierarchyWindow;
-	EditorInspectorWindow		_inspectorWindow;
+	Entity* _boidsEnt = nullptr;
 };
 
 }

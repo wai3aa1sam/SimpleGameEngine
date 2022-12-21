@@ -28,6 +28,15 @@ struct BBox3 {
 	void encapsulate(const Vec3& pt);
 
 	void getPoints(Vec3 outPoints[8], const Mat4& matrix) const;
+
+	static void create(BBox3& o, Vec3 pts[8])
+	{
+		o.reset();
+		for (size_t i = 0; i < 8; i++)
+		{
+			o.encapsulate(pts[i]);
+		}
+	}
 };
 
 template<class T> inline

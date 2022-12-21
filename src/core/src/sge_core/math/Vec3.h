@@ -17,7 +17,10 @@ namespace sge {
 using Vec3f = Vec3<float>;
 using Vec3d = Vec3<double>;
 
+using Vec3i = Vec3<int>;
+
 template<> const TypeInfo* TypeOf<Vec3f>();
 template<> const TypeInfo* TypeOf<Vec3d>();
+
 
 }

@@ -34,9 +34,9 @@ public:
 	template<class C>
 	C* getComponent() {
 		auto* type = TypeOf<C>();
-		for (auto* c : _components) {
+		for (auto c : _components) {
 			if (c->getType() == type) {
-				return c;
+				return static_cast<C*>(c.ptr());
 			}
 		}
 		return nullptr;

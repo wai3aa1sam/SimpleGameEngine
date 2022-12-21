@@ -1,4 +1,6 @@
+#include <sge_editor-pch.h>
 #include "EditorPropertyDrawer.h"
+#include "EditorUI.h"
 
 namespace sge {
 
@@ -16,6 +18,54 @@ void EditorPropertyDrawer_float::draw(DrawRequest& req) {
 		req.field->setValue<float>(obj, newV);
 	}
 }
+
+void EditorPropertyDrawer_bool ::draw(DrawRequest& req) {
+	using T = bool;
+	bool isMixed = req.isMixedValue<T>();
+	auto mv = makeScopedValue(&EditorUI::showMixedValue, isMixed);
+
+	T oldV = req.getFirstObjectValue<T>();
+	T newV = oldV;
+
+	if (!EditorUI::Checkbox(req.field->name, &newV)) return;
+	if (isMixed) return;
+
+	for (auto& obj : req.objects) {
+		req.field->setValue<T>(obj, newV);
+	}
+}
+
+void EditorPropertyDrawer_i32 ::draw(DrawRequest& req) {
+	using T = i32;
+	bool isMixed = req.isMixedValue<T>();
+	auto mv = makeScopedValue(&EditorUI::showMixedValue, isMixed);
+
+	T oldV = req.getFirstObjectValue<T>();
+	T newV = oldV;
+
+	if (!EditorUI::DragInt(req.field->name, &newV)) return;
+	if (isMixed) return;
+
+	for (auto& obj : req.objects) {
+		req.field->setValue<T>(obj, newV);
+	}
+}
+
+void EditorPropertyDrawer_u64::draw(DrawRequest& req) {
+	/*bool isMixed = req.isMixedValue<u64>();
+	auto mv = makeScopedValue(&EditorUI::showMixedValue, isMixed);
+
+	float oldV = req.getFirstObjectValue<float>();
+	float newV = oldV;
+
+	if (!EditorUI::(req.field->name, &newV)) return;
+	if (isMixed) return;
+
+	for (auto& obj : req.objects) {
+		req.field->setValue<u64>(obj, newV);
+	}*/
+}
+
 
 void EditorPropertyDrawer_struct::draw(DrawRequest& parentreq) {
 	auto* ed = EditorContext::instance();

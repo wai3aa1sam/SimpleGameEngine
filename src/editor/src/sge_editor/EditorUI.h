@@ -28,6 +28,22 @@ namespace EditorUI {
 									ImGuiInputTextFlags_EnterReturnsTrue);
 	}
 
+	inline bool DragInt(
+		const char* label, 
+		i32* v, 
+		float v_speed = 1.0, 
+		i32 v_min = std::numeric_limits<i32>::lowest(),
+		i32 v_max = std::numeric_limits<i32>::max(),
+		i32 v_power = 1)
+	{
+		return ImGui::DragInt(	label, v, v_speed, v_min, v_max, 
+			showMixedValue ? mixedValueFormat : floatFormat, 
+			v_power);
+	}
+
+	inline float Checkbox(const char* label, bool* v) {
+		return ImGui::Checkbox(	label, v);
+	}
 
 	class Window : public NonCopyable {
 	public:
