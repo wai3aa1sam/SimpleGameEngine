@@ -19,7 +19,7 @@ namespace sge {
 
 #define SGE_JOB_SYSTEM_ENABLE_THREAD_TYPE 0
 #define SGE_JOB_SYSTEM_ENABLE_SINGLE_THREAD_DEBUG 0
-#define SGE_JOB_SYSTEM_DEBUG 1
+#define SGE_JOB_SYSTEM_DEBUG 0
 
 #if SGE_JOB_SYSTEM_ENABLE_SINGLE_THREAD_DEBUG
 
@@ -44,7 +44,8 @@ SGE_ENUM_CLASS(ThreadType, u8)
 #else
 
 #define ThreadType_ENUM_LIST(E) \
-	E(Count, = 0)	\
+	E(Main,  = 0)	\
+	E(Count, = 1)	\
 //----------
 SGE_ENUM_CLASS(ThreadType, u8)
 

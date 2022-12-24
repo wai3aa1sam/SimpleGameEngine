@@ -11,7 +11,7 @@ void Job::setParent(Job* parent)
 	_storage._parent = parent; 
 }
 
-bool Job::isCompleted() const		{ return _storage._jobRemainCount.load() == 0; }
+bool Job::isCompleted() const		{ return _storage._jobRemainCount.load() == 0 || _storage._task == nullptr; }
 int  Job::jobRemainCount() const	{ return _storage._jobRemainCount.load(); }
 
 void Job::_runAfter(Job* job)

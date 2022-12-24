@@ -37,6 +37,7 @@ private:
 		{
 			static_assert(N <= 255); // max of u8
 		}
+		~LocalBuffer() { clear(); }
 		void* allocate(size_t n)
 		{
 			SGE_ASSERT(_offset + n <= s_kCapacity);
@@ -145,6 +146,19 @@ public:
 
 	~Job() = default;
 	
+	void clear()
+	{
+		_storage.dep._dependencyCount.store(0);
+		_storage.dep._runAfterThis.clear();
+
+		_storage._localBuf.clear();
+		_storage._jobRemainCount = 1;
+		_storage._param = nullptr;
+		_storage._parent = nullptr;
+		_storage._priority = Job::Priority(0);
+		_storage._task = nullptr;
+	}
+
 	void setParent(Job* parent);
 
 	bool isCompleted() const;

@@ -29,11 +29,7 @@ JobSystem::JobSystem()
 
 #else
 
-#if SGE_JOB_SYSTEM_ENABLE_THREAD_TYPE
 	_threadLocalId = enumInt(ThreadType::Main);
-#else
-	_threadLocalId = enumInt(ThreadType::Count);
-#endif // SGE_JOB_SYSTEM_NO_THREAD_TYPE
 
 #endif // SGE_JOB_SYSTEM_SINGLE_THREAD_DEBUG
 
