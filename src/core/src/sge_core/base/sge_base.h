@@ -51,6 +51,9 @@
 
 #include <nlohmann/json.hpp>
 
+#include <tracy/Tracy.hpp>
+#include <tracy/TracyC.h>
+
 #include "sge_macro.h"
 
 using Json = nlohmann::json;

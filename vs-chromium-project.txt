@@ -4,5 +4,6 @@
 /src/
 # /externals/vcpkg/buildtrees/nlohmann-json
 /externals/vcpkg/buildtrees/imgui
+/externals/vcpkg/buildtrees/tracy
 
 [SourceExplorer.ignore]

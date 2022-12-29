@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.21)
 
 set(CMAKE_TOOLCHAIN_FILE "./externals/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
 set(CMAKE_CXX_STANDARD 17)
@@ -17,6 +17,8 @@ find_package(nlohmann_json CONFIG REQUIRED)
 find_package(libpng CONFIG REQUIRED)
 find_package(PNG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
+find_package(Threads REQUIRED)
+find_package(Tracy CONFIG REQUIRED)
 
 function(sge_source_group src_path src_files)
 	foreach(FILE ${src_files}) 
