@@ -22,6 +22,8 @@ private:
 	template <class T> using ParForData = typename _parallel_for_impl::Data<T>;
 	template <class T> using ParForTask = typename ParForData<T>::Task;
 
+
+
 public:
 	using Task = Job::Task;
 
@@ -44,10 +46,12 @@ public:
 
 	static size_t workersCount();
 
+	static const char* threadName();
+
 protected:
 	static Job* allocateJob();
 	bool _tryGetJob(Job*& job);
-
+	
 	static void _execute(Job* job);
 	static void _complete(Job* job);
 

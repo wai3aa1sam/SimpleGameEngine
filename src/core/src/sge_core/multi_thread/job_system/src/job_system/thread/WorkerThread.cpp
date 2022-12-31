@@ -6,6 +6,8 @@
 
 #include "../JobSystem.h"
 
+#include <sge_core/profiler/sge_profiler.h>
+
 namespace sge {
 
 thread_local int _threadLocalId = -1;
@@ -14,6 +16,7 @@ WorkerThread::WorkerThread(ThreadPool* threadPool, ThreadStorage* storage)
 {
 	_threadPool = threadPool;
 	_storage = storage;
+
 }
 
 WorkerThread::~WorkerThread()
@@ -33,6 +36,12 @@ void WorkerThread::onProc()
 {
 	_threadLocalId = _storage->localId();
 
+#if SGE_ENABLE_TRACY_PROILER
+	SGE_PROFILE_SET_THREAD_NAME(_storage->name());
+	//SGE_LOG("threadname: {}", tracy::GetThreadName(tracy::GetThreadHandle()));
+#endif // SGE_ENABLE_TRACY_PROILER
+
+
 	std::exception_ptr ptr = nullptr;
 	debugLog("=== _threadLocalId {}, localId {} onProc()", _threadLocalId, localId());
 
@@ -45,6 +54,8 @@ void WorkerThread::onProc()
 		{
 			while (job)
 			{
+				_storage->wake();
+
 				debugLog("=== thread {} execute job", localId());
 				JobSystem::_execute(job);
 				//job->_execute();
@@ -110,8 +121,7 @@ bool WorkerThread::_tryGetJob(Job*& job)
 		}
 	}
 #else
-	//sleep_ms(100);
-	sleep_ms(10);
+	_storage->sleep();
 
 #endif // 0
 

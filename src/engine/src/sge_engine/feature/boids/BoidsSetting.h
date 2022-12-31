@@ -7,12 +7,16 @@ namespace sge {
 #define SGE_IS_FISH_ANIMATE_IMPL2 0
 #define SGE_IS_BOIDS_DEBUG 0
 
+#define SGE_IS_BOIDS_NO_NEAR 0
+
+#define SGE_IS_MT_BOIDS 0
+
 class BoidsSetting : public NonCopyable
 {
 	using T = float;
 	using Vec3 = Vec3<T>;
 public:
-	size_t objectCount = 200;
+	size_t objectCount = 10000;
 
 	// Debug
 	bool isUseCuboid			= true;
@@ -20,8 +24,9 @@ public:
 	bool isDrawObstacle			= false;
 	bool isDrawObjBoundingBox	= false;
 	bool isDrawRay				= false;
+	bool isDrawMesh				= false;
 
-	float spawnRadius = 5;
+	float lineLength			= 1.5f;
 
 	// Settings
 	float minSpeed = 4;
@@ -39,13 +44,15 @@ public:
 #if SGE_IS_BOIDS_DEBUG
 	Vec3f boidsPos	   = { 0,  0, 0};
 #else
-	Vec3f boidsPos	   = { 0,  -10, -50};
+	Vec3f boidsPos	   = { 0,  -10, -90 / 2};
 #endif // SGE_IS_BOIDS_DEBUG
 
 	float factor = 1.0;
 
-	Vec3f boidsSize	   = Vec3f{50, 50, 50} * factor;
-	float minCellSize  = 4.0f * factor;
+	float spawnRadius	= 50 * factor;
+
+	Vec3f boidsSize	   = Vec3f{spawnRadius, spawnRadius, spawnRadius} ;
+	float minCellSize  = 1.0f * factor;
 	float minBoidsSize = 10.0f;
 	Vec3f cellSize	   ;//= {4.0, 4.0, 4.0};
 
@@ -69,7 +76,7 @@ public:
 	float cohesionWeight = 1;
 
 	float avoidCollisionRadius = 5;
-	float avoidCollisionWeight = 10;
+	float avoidCollisionWeight = 5;
 
 	// --- performance
 	int alternativeUpdate = 1;
@@ -108,6 +115,10 @@ const TypeInfo* TypeOf<BoidsSetting>() {
 				{"isDrawObstacle"  ,		&This::isDrawObstacle    },
 				{"isDrawObjBoundingBox"  ,	&This::isDrawObjBoundingBox    },				
 				{"isDrawRay"  ,				&This::isDrawRay    },
+				{"isDrawMesh"  ,			&This::isDrawMesh},
+
+				{"lineLength"  ,			&This::lineLength},
+				
 
 				// Settings		 
 				{"_objScale",		  &This::_objScale },

@@ -1,5 +1,10 @@
 #pragma once
 
+#if SGE_OS_WINDOWS
+#include <processthreadsapi.h>
+#endif // SGE_OS_WINDOWS
+
+
 namespace sge {
 
 #define SGE_TEST_BASIC_THREAD 1
@@ -79,6 +84,15 @@ template<class T> inline
 DWORD ThreadBase::_proc(void* p)
 {
 	auto* obj = reinterpret_cast<T*>(p);
+
+	StringW threadName = L"My_Thread_";
+	threadName += std::to_wstring(obj->_localId).c_str();;
+
+#if SGE_OS_WINDOWS
+	HRESULT r;
+	r = SetThreadDescription(GetCurrentThread(), threadName.c_str());
+#endif // 0
+
 	obj->onProc();
 	return 0;
 }

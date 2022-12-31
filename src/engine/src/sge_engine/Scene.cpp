@@ -8,6 +8,7 @@ Scene::Scene() {
 }
 
 Scene::~Scene() {
+	SGE_LOG("Scene::~Scene()");
 }
 
 Entity* Scene::addEntity() {

@@ -8,8 +8,15 @@ namespace sge {
 #endif // 0	
 #if 1
 
+void EditorLayer_Base::update()
+{
+	onUpdate();
+}
+
 void EditorLayer_Base::render(RenderContext& rdCtx_, RenderData& rdData_)
 {
+	SGE_PROFILE_SCOPED;
+
 	auto& rdCtx = rdCtx_; SGE_UNUSED(rdCtx);
 	auto& rdReq = getRenderRequest(); SGE_UNUSED(rdReq);
 	auto& rdData = rdData_; SGE_UNUSED(rdData);
@@ -22,6 +29,8 @@ void EditorLayer_Base::render(RenderContext& rdCtx_, RenderData& rdData_)
 
 		~RenderScope()
 		{
+			SGE_PROFILE_SECTION("End Render");
+
 			rdCtx.drawUI(rdReq);
 
 			rdReq.swapBuffers();
@@ -34,6 +43,8 @@ void EditorLayer_Base::render(RenderContext& rdCtx_, RenderData& rdData_)
 			: 
 			rdCtx(rdCtx_), rdReq(rdReq_), rdData(rdData_)
 		{
+			SGE_PROFILE_SECTION("Begin Render");
+
 			const auto& clientRect = *rdData.clientRect;
 			rdCtx.setFrameBufferSize(clientRect.size);
 			rdCtx.beginRender();
@@ -202,8 +213,18 @@ void EditorLayer::create()
 	}
 }
 
+void EditorLayer::onUpdate()
+{
+	SGE_PROFILE_SCOPED;
+	
+	auto* cBoids = _boidsEnt->getComponent<CBoids>(); (void)cBoids;
+	cBoids->_boids.update();
+}
+
 void EditorLayer::onRender(RenderContext& rdCtx_, RenderData& rdData_)
 {
+	SGE_PROFILE_SCOPED;
+
 	auto& rdCtx = rdCtx_; SGE_UNUSED(rdCtx);
 	auto& rdReq = getRenderRequest(); SGE_UNUSED(rdReq);
 	auto& rdData = rdData_; SGE_UNUSED(rdData);
@@ -244,14 +265,10 @@ void EditorLayer::onRender(RenderContext& rdCtx_, RenderData& rdData_)
 
 #else
 
-	auto* cBoids = _boidsEnt->getComponent<CBoids>();
-	cBoids->_boids.update();
+	auto* cBoids = _boidsEnt->getComponent<CBoids>(); (void)cBoids;
 	cBoids->_boids.render(rdReq);
 
 #endif // 0
-
-
-
 
 	_hierarchyWindow.draw(rdReq, _scene);
 	_inspectorWindow.draw(rdReq, _scene);

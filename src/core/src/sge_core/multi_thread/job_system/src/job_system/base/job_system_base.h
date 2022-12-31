@@ -12,6 +12,8 @@
 #include <sge_core/base/sge_macro.h>
 #include <sge_core/log/Log.h>
 
+#include <sge_core/profiler/sge_profiler.h>
+
 #include <EASTL/algorithm.h>
 #include <EASTL/sort.h>
 
@@ -20,6 +22,7 @@ namespace sge {
 #define SGE_JOB_SYSTEM_ENABLE_THREAD_TYPE 0
 #define SGE_JOB_SYSTEM_ENABLE_SINGLE_THREAD_DEBUG 0
 #define SGE_JOB_SYSTEM_DEBUG 0
+#define SGE_ENABLE_TRACY_PROILER 1
 
 #if SGE_JOB_SYSTEM_ENABLE_SINGLE_THREAD_DEBUG
 
@@ -65,6 +68,8 @@ SGE_ENUM_CLASS(JobPrioity, u8)
 template<class T> using PrioityQueue = PrioityQueues<T, enumInt(JobPrioity::Count)>;
 
 static constexpr size_t s_kCacheLine = 64;
+static constexpr int s_kIdleSleepTimeMS = 1;
+static constexpr int s_kBusySleepTimeMS = 0;
 
 extern thread_local i32 _threadLocalId;
 inline i32 threadLocalId() { return _threadLocalId; }

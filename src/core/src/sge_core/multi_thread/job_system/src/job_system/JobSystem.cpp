@@ -1,5 +1,6 @@
 #include "JobSystem.h"
 
+#include <sge_core/profiler/sge_profiler.h>
 
 namespace sge {
 
@@ -23,15 +24,8 @@ JobSystem::JobSystem()
 		back->_init(static_cast<i16>(i));
 	}
 
-#if SGE_JOB_SYSTEM_ENABLE_SINGLE_THREAD_DEBUG
-
-	_threadLocalId = 0;
-
-#else
-
 	_threadLocalId = enumInt(ThreadType::Main);
-
-#endif // SGE_JOB_SYSTEM_SINGLE_THREAD_DEBUG
+	_storages[enumInt(ThreadType::Main)]->_setName("Main Thread");
 
 	if (nWorkers)
 	{
@@ -55,6 +49,8 @@ JobSystem::~JobSystem()
 void JobSystem::waitForComplete(Job* job)
 {
 	auto& threadPool = JobSystem::instance()->_threadPool;
+	auto* jsys = JobSystem::instance();
+	auto& storage = *jsys->_storages[enumInt(ThreadType::Main)]; (void)storage;
 
 	while (!job->isCompleted())
 	{
@@ -62,12 +58,12 @@ void JobSystem::waitForComplete(Job* job)
 
 		if (threadPool.tryGetJob(tmp))
 		{
+			//storage.wake();
 			_execute(tmp);
 		}
-		else
-		{
-			sleep_ms(10);
-		}
+
+		sleep_ms(s_kBusySleepTimeMS);
+		//storage.sleep();
 	}
 
 	//atomicLog("=== done waitForComplete()");
@@ -89,7 +85,7 @@ Job* JobSystem::allocateJob()
 	auto* jsys = JobSystem::instance();
 	jsys->_checkError();
 
-	auto* storage = jsys->_storages[_threadLocalId].get();
+	auto* storage = jsys->_storages[threadLocalId()].get();
 	auto* job = storage->allocateJob();
 
 	return job;
@@ -119,7 +115,7 @@ void JobSystem::clearJobs()
 	auto* jsys = JobSystem::instance();
 	jsys->_checkError();
 
-	auto* storage = jsys->_storages[_threadLocalId].get();
+	auto* storage = jsys->_storages[threadLocalId()].get();
 	storage->clearJobs();
 }
 
@@ -134,6 +130,14 @@ size_t JobSystem::workersCount()
 	jsys->_checkError();
 	return jsys->_threadPool.workerCount();
 }
+
+const char* JobSystem::threadName()
+{
+	auto* jsys = JobSystem::instance();
+	jsys->_checkError();
+	return jsys->_storages[threadLocalId()]->name();
+}
+
 
 void JobSystem::_complete(Job* job)
 {
@@ -177,13 +181,13 @@ void JobSystem::_execute(Job* job)
 
 void JobSystem::_checkError()
 {
-	if (!(_threadLocalId >= 0 && _threadLocalId < JobSystem::instance()->_storages.size()))
+	if (!(threadLocalId() >= 0 && threadLocalId() < JobSystem::instance()->_storages.size()))
 	{
-		atomicLog("=== _threadLocalId {}, localId {} _checkError()", _threadLocalId, JobSystem::instance()->_storages[_threadLocalId]->localId());
+		atomicLog("=== threadLocalId() {}, localId {} _checkError()", threadLocalId(), JobSystem::instance()->_storages[threadLocalId()]->localId());
 	}
 
-	SGE_ASSERT(_threadLocalId >= 0 && _threadLocalId < JobSystem::instance()->_storages.size());
-	SGE_ASSERT(JobSystem::instance()->_storages[_threadLocalId]);
+	SGE_ASSERT(threadLocalId() >= 0 && threadLocalId() < JobSystem::instance()->_storages.size());
+	SGE_ASSERT(JobSystem::instance()->_storages[threadLocalId()]);
 }
 
 }

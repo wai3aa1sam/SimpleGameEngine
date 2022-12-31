@@ -28,6 +28,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <atomic>
+#include <new>
 
 #include <EASTL/vector.h>
 #include <EASTL/fixed_vector.h>

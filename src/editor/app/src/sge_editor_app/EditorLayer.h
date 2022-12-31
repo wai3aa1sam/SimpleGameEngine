@@ -15,9 +15,11 @@ namespace sge {
 class EditorLayer_Base : public NonCopyable
 {
 public:
+	void update();
 	void render(RenderContext& rdCtx_, RenderData& rdData_);
 
 protected:
+	virtual void onUpdate() = 0;
 	virtual void onRender(RenderContext& rdCtx_, RenderData& rdData_) = 0;
 private:
 	
@@ -26,12 +28,17 @@ private:
 class EditorLayer : public EditorLayer_Base
 {
 public:
+	~EditorLayer()
+	{
+		SGE_LOG("~EditorLayer()");
+	}
 	void create();
 
 	void onUIMouseEvent(UIMouseEvent& ev);
 
 protected:
-	void onRender(RenderContext& rdCtx_, RenderData& rdData_);
+	virtual void onUpdate();
+	virtual void onRender(RenderContext& rdCtx_, RenderData& rdData_);
 
 private:
 	EditorHierarchyWindow		_hierarchyWindow;

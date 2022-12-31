@@ -58,14 +58,24 @@ void EditorApp::onCreate(CreateDesc& desc)
 void EditorApp::onRun()
 {
 	//Base::onRun();
+	SGE_PROFILE_SCOPED;
 
 	while (!_shouldQuit)
 	{
+
 		RenderData rdData;
 		rdData.clientRect = &_mainWin.clientRect();
 
+		_editorLayer->update();
+
 		_editorLayer->render(_mainWin.renderContext(), rdData);
-		Base::pollEvent();
+
+		{
+			SGE_PROFILE_SECTION("pollEvent");
+			Base::pollEvent();
+		}
+
+		SGE_PROFILE_FRAME;
 	}
 }
 
@@ -76,6 +86,8 @@ void EditorApp::onQuit()
 	EditorContext::destroyContext();
 	EngineContext::destroy();
 	Base::onQuit();
+
+	delete _editorLayer;
 }
 
 void EditorApp::onUIMouseEvent(UIMouseEvent & ev)

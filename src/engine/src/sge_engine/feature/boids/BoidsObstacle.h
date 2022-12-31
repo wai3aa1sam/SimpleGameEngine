@@ -31,7 +31,11 @@ public:
 	~Singleton()
 	{
 		SGE_ASSERT(_instance);
-		delete _instance;
+		if (_instance)
+		{
+			//delete _instance;
+			_instance = nullptr;
+		}
 	}
 
 	static T* instance() { return _instance; }

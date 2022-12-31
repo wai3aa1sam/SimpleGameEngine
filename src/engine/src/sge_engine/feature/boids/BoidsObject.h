@@ -57,4 +57,61 @@ private:
 	Vec3f _forward = {0.0f, 0.0f, 1.0f};
 };
 
+struct BoidsData
+{
+	void setForward(const Vec3f& forward)
+	{
+		_forward = forward;
+		//_rot = Quat4f::s_fromToRotation(Vec3f::s_forward(), forward);
+	}
+
+	Mat4f modelMatrix(const Vec3f& scale = Vec3f(1.0, 1.0, 1.0))
+	{
+		auto rot = Quat4f::s_fromToRotation(Vec3f::s_forward(), _forward);
+		return Mat4f::s_TRS(_position, rot, scale);
+	}
+
+	Quat4f rotation() const { return Quat4f::s_fromToRotation(Vec3f::s_forward(), _forward); }
+
+	Vec3f _position	= Vec3f::s_zero();
+	Vec3f _forward	= Vec3f::s_zero();
+};
+
+struct BoidsObjUpdateData
+{
+	Vec3f _position	= Vec3f::s_zero();
+	Vec3f _forward	= Vec3f::s_zero();
+
+	Quat4f rotation() const { return Quat4f::s_fromToRotation(Vec3f::s_forward(), _forward); }
+
+	//int	  nearbyObjCount		= 0;
+
+	int	  separationCount		= 0;
+	int	  alignmentCount		= 0;
+	int	  cohesionCount			= 0;
+
+	Vec3f totalSeparationPos	= Vec3f::s_zero();
+	Vec3f totalAlignmentDir		= Vec3f::s_zero();
+	Vec3f totalCohesionCenter	= Vec3f::s_zero();
+};
+
+class BoidsObjectManager
+{
+public:
+	void init(Boids* boids);
+
+	void setup();
+	void update();
+	void render(RenderRequest& rdReq, const Boids* boids);
+
+	Span<BoidsObjUpdateData> getUpdateData()	{ return _updateData; }
+	Span<BoidsData>			 data()				{ return _data; }
+
+private:
+
+	Vector<BoidsObjUpdateData>		_updateData;
+	Vector<BoidsData>				_data;
+	Vector<SPtr<Material>>			_mtls;	// useless if using instancing
+};
+
 }

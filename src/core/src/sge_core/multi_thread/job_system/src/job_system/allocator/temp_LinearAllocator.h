@@ -15,6 +15,7 @@ public:
 	LinearAllocator(u64 nBytes_);
 	~LinearAllocator() = default;
 
+	void init(u64 nBytes_ = 4 * 1024) { _init(nBytes_); }
 
 	void* allocate(u64 nBytes_);
 	bool deallocate(u64 nBytes_);

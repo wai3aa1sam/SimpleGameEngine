@@ -21,7 +21,17 @@ const TypeInfo* TypeOf<Boids>() {
 			: TI_Base("Boids")
 		{
 			static FieldInfo fi[] = {
+
+				{"enableUpdate",	&This::_enableUpdate  },
+				{"enableRender",	&This::_enableRender  },
+
 				{"_setting",	&This::_setting },
+
+				#if SGE_IS_MT_BOIDS
+				{"_objDivSlicePerTime",	&This::_objDivSlicePerTime  },
+
+				#endif // 0
+
 
 				#if SGE_IS_FISH_ANIMATE_IMPL2
 				{"_side_to_side",	&This::_side_to_side },
@@ -101,11 +111,18 @@ void Boids::start()
 	}
 
 	{
+		_setting.objectCount = roundupToMultiple(_setting.objectCount, hardwareThreadCount());
 		_objs.resize(_setting.objectCount);
+		//_updateObjs.resize(_setting.objectCount);
+
+		_objAllocator.init(sizeof(BoidsObject) * _setting.objectCount);
+
 		for (size_t i = 0; i < _objs.size(); i++)
 		{
 			auto& obj = _objs[i];
-			obj = new BoidsObject();
+			//obj = new BoidsObject();
+			obj = new(_objAllocator.allocate(sizeof(BoidsObject))) BoidsObject();
+
 			obj->init(this);
 
 			std::default_random_engine _rng{ std::random_device{}() };
@@ -143,48 +160,87 @@ void Boids::start()
 	auto cellSize = Math::max({ _setting.minCellSize, _setting.separationRadius, _setting.alignmentRadius, _setting.cohesionRadius });
 	_setting.cellSize = Vec3f(cellSize, cellSize, cellSize);
 	_cuboid.create(_setting.boidsSize, _setting.cellSize, _setting.boidsPos);
+
+#if SGE_IS_MT_BOIDS
+	_cuboid_mt.create(_setting.boidsSize, _setting.cellSize, _setting.boidsPos);
+
+	_objManager.init(this);
+#endif // SGE_IS_MT_BOIDS
+
 }
 
 void Boids::update()
 {
+	SGE_PROFILE_SCOPED;
+
+	if (!_enableUpdate)
+		return;
+
 	_setting.alignmentViewAngle = Math::cos(Math::radians(_setting.alignmentViewAngle * 0.5f) );
 	float dt = 1.0f / 60.0f; (void)dt;
 	_time.x += dt;
 	_time.y += dt;
 
-	_cuboid.clear();
-
-	for (size_t i = 0; i < _objs.size(); i++)
+#if SGE_IS_USE_CELL && !SGE_IS_BOIDS_NO_NEAR
 	{
-		auto& obj = _objs[i];
+		SGE_PROFILE_SECTION("add object to cell");
+#if SGE_IS_MT_BOIDS
 
-#if SGE_IS_USE_CELL
-		_cuboid.addObj(obj, obj->_position);
-#endif // 0
+		_cuboid_mt.clear();
 
-	}
-
-#if 0
-	bool endLoop = false;
-	for (size_t i = 0; i < _objs.size(); i += _setting.alternativeUpdate * 2)
-	{
-		for (size_t offset = 0; offset < _setting.alternativeUpdate; offset++)
+		const auto& data = this->_objManager.getUpdateData();
+		for (size_t i = 0; i < data .size(); i++)
 		{
-			auto index = i + offset;
-			if (index > _objs.size())
-			{
-				endLoop = true;
-				break;
-			}
-			auto& obj = _objs[index];
-			auto& nearbyObjs = _objs;
-
-			think(*obj, dt, nearbyObjs);
+			auto& obj = data[i];
+			BoidsData boidsData = { obj._position, obj._forward };
+			_cuboid_mt.addObj(boidsData);
 		}
-		if (endLoop)
-			break;
-	}
 #else
+		_cuboid.clear();
+
+		for (size_t i = 0; i < _objs.size(); i++)
+		{
+			auto& obj = _objs[i];
+			_cuboid.addObj(obj, obj->_position);
+		}
+#endif // 0
+	}
+
+#endif // SGE_IS_MT_BOIDS
+
+#if SGE_IS_MT_BOIDS
+
+	_setupObjJob.setup(this);
+	auto setupObjJobHandle = JobSystem::createAndRunNJobs(SetupObjJob::execute, _setupObjJob._data, SetupObjJob::s_kJobCount);
+	{
+		SGE_PROFILE_SECTION("waitForComplete(setupObjJobHandle)");
+		JobSystem::waitForComplete(setupObjJobHandle);
+	}
+
+	_preceieveNearObjJob.setup(this);
+	auto preceieveNearObjJobHandle = JobSystem::createAndRunNJobs(PreceieveNearObjJob::execute, _preceieveNearObjJob._data, PreceieveNearObjJob::s_kJobCount);
+	{
+		SGE_PROFILE_SECTION("waitForComplete(preceieveNearObjJobHandle)");
+		JobSystem::waitForComplete(preceieveNearObjJobHandle);
+	}
+
+	_updateObjJob.setup(this);
+	auto updateObjJobHandle = JobSystem::createAndRunNJobs(UpdateObjJob::execute, _updateObjJob._data, UpdateObjJob::s_kJobCount);
+	{
+		SGE_PROFILE_SECTION("waitForComplete(updateObjJobHandle)");
+		JobSystem::waitForComplete(updateObjJobHandle);
+	}
+
+	this->_timeSliceIdx++;
+	if (_timeSliceIdx >= _objDivSlicePerTime)
+	{
+		_timeSliceIdx = 0;
+	}
+	
+	JobSystem::clearJobs();
+
+#else
+
 	auto& altUpdateIdx = _setting.alternativeUpdateIndex;
 	altUpdateIdx = (altUpdateIdx + 1) % _setting.alternativeUpdate;
 
@@ -193,7 +249,7 @@ void Boids::update()
 		auto& obj = _objs[i];
 		auto* nearbyObjs = &_objs;
 
-#if SGE_IS_USE_CELL
+#if SGE_IS_USE_CELL && !SGE_IS_BOIDS_NO_NEAR
 		if (_setting.isUseCuboid)
 		{
 			_cuboid.getNearbyObjs(_tempObjs, obj->_position);
@@ -203,13 +259,16 @@ void Boids::update()
 
 		think(*obj, dt, *nearbyObjs);
 	}
-#endif // 0
 
 	for (size_t i = 0; i < _objs.size(); i++)
 	{
 		auto& obj = _objs[i]; (void)obj;
 		obj->update();
 	}
+
+
+#endif // SGE_IS_MT_BOIDS
+
 
 #if SGE_IS_BOIDS_DEBUG
 	_objs[0]->_position = _position;
@@ -220,10 +279,27 @@ void Boids::update()
 
 void Boids::render(RenderRequest& rdReq)
 {
+	SGE_PROFILE_SCOPED;
+
+	if (!_enableRender)
+		return;
+
+	//return;
 	_rdReq = &rdReq;
 	rdReq.debug.drawBoundingBox = _setting.isDrawObjBoundingBox;
 
 	Physics::Random rnd;
+
+#if SGE_IS_MT_BOIDS
+
+	_objManager.render(rdReq, this);
+
+	if (_setting.isDrawCells)
+	{
+		_cuboid_mt.render(rdReq);
+	}
+
+#else
 
 	for (size_t i = 0; i < _objs.size(); i++)
 	{
@@ -257,29 +333,11 @@ void Boids::render(RenderRequest& rdReq)
 		obj->_mtl->setParam("_mask_white",			_mask_white);
 #endif // 0
 
-		rdReq.drawMesh(SGE_LOC, _meshAsset->mesh, obj->_mtl, obj->modelMatrix(_setting._objScale));
+		//rdReq.drawMesh(SGE_LOC, _meshAsset->mesh, obj->_mtl, obj->modelMatrix(_setting._objScale));
+		rdReq.drawLine(obj->_position, obj->_position + obj->forward() * 1.02f);
 	}
 
-#if 0
-	{
-		static float dt = 0.0f;
-		dt += 1 / 60.0f;
-		if (dt > 1)
-		{
-			SGE_LOG("=== start position");
-
-			for (size_t i = 0; i < _objs.size(); i++)
-			{
-				auto& obj = _objs[i];
-				auto idx = _cuboid.cellByPos(obj->_position)->idx;
-				SGE_LOG("obj[{}]: _position: {}, cell: [{}, {}, {}]", i, obj->_position, idx.x, idx.y, idx.z);
-			}
-
-			SGE_LOG("=== end position");
-			dt = 0;
-		}
-	}
-#endif // 0
+#endif // SGE_IS_MT_BOIDS
 
 	if (_setting.isDrawObstacle)
 	{
@@ -407,6 +465,12 @@ Vec3f Boids::steerForce(const BoidsObject& obj, const Vec3f& v)
 	return ret.clampMag(_setting.maxSteerForce);
 }
 
+Vec3f Boids::steerForce(const Vec3f& vel, const Vec3f& v)
+{
+	Vec3f ret = v.normalize() * _setting.maxSpeed - vel;
+	return ret.clampMag(_setting.maxSteerForce);
+}
+
 Boids::Vec3 Boids::avoidObstacleRay(const Vec3& origin, const Vec3& forward, const Quat4& curRot)
 {
 	//using T = float;
@@ -419,6 +483,7 @@ Boids::Vec3 Boids::avoidObstacleRay(const Vec3& origin, const Vec3& forward, con
 	{
 		Vec3 dir =  curRot * ray;
 
+#if !SGE_IS_MT_BOIDS
 		if (_rdReq)
 		{
 			if (_setting.isDrawRay)
@@ -426,6 +491,8 @@ Boids::Vec3 Boids::avoidObstacleRay(const Vec3& origin, const Vec3& forward, con
 				_rdReq->drawLine(origin, origin + dir * _setting.avoidCollisionRadius, Color4b(255, 255, 255, 255));
 			}
 		}
+#endif // !SGE_IS_MT_BOIDS
+
 
 		if (!raycast(ret, origin, dir, _setting.avoidCollisionRadius))
 		{
@@ -435,7 +502,6 @@ Boids::Vec3 Boids::avoidObstacleRay(const Vec3& origin, const Vec3& forward, con
 
 	return forward;
 }
-
 
 bool Boids::boundPos(const Vec3f& pos)
 {
