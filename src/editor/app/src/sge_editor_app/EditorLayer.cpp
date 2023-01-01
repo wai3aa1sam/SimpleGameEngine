@@ -78,7 +78,6 @@ void EditorLayer::create()
 		Texture2D_CreateDesc texDesc;
 		auto& image = texDesc.imageToUpload;
 
-#if 1
 		// image.loadFile("Assets/Textures/uvChecker.png");
 		// image.loadFile("Assets/Textures/uvChecker_BC1.dds");
 		// image.loadFile("Assets/Textures/uvChecker_BC2.dds");
@@ -88,26 +87,6 @@ void EditorLayer::create()
 		texDesc.size = image.size();
 		texDesc.colorType = image.colorType();
 
-#else
-		int w = 256;
-		int h = 256;
-
-		texDesc.size.set(w, h);
-		texDesc.colorType = ColorType::RGBAb;
-
-		image.create(Color4b::kColorType, w, h);
-
-		for (int y = 0; y < w; y++) {
-			auto span = image.row<Color4b>(y);
-			for (int x = 0; x < h; x++) {
-				span[x] = Color4b(	static_cast<u8>(x),
-					static_cast<u8>(y), 
-					0, 
-					255);
-			}
-		}
-#endif
-
 		_testTexture = renderer->createTexture2D(texDesc);
 	}
 
@@ -116,94 +95,6 @@ void EditorLayer::create()
 		_lineMaterial = renderer->createMaterial();
 		_lineMaterial->setShader(lineShader);
 	}
-
-	{
-		_shader = renderer->createShader("Assets/Shaders/test.shader");
-		_material = renderer->createMaterial();
-		_material->setShader(_shader);
-
-		_material->setParam("mainTex", _testTexture);
-
-		EditMesh editMesh;
-
-#if 1
-		WavefrontObjLoader::loadFile(editMesh, "Assets/Mesh/test.obj");
-		// the current shader need color
-		editMesh.addColors(Color4b(255, 255, 255, 255));
-
-#else
-		editMesh.pos.emplace_back( 0.0f,  0.5f, 0.0f);
-		editMesh.pos.emplace_back( 0.5f, -0.5f, 0.0f);
-		editMesh.pos.emplace_back(-0.5f, -0.5f, 0.0f);
-
-		editMesh.color.emplace_back(255, 0, 0, 255);
-		editMesh.color.emplace_back(0, 255, 0, 255);
-		editMesh.color.emplace_back(0, 0, 255, 255);
-#endif
-
-		_renderMesh.create(editMesh);
-	}
-
-	{
-		float size = 2048;
-		float pos  = size / -2;
-		float y    = -100;
-		float height = 200;
-		int maxLod = 6;
-		_terrain.createFromHeightMapFile(
-			Vec3f(pos, y, pos),
-			Vec2f(size, size),
-			height, 
-			maxLod, 
-			"Assets/Terrain/TerrainTest/TerrainHeight_Small.png");
-	}
-
-#if 0
-	{ // ECS
-		EditMesh editMesh;
-		WavefrontObjLoader::loadFile(editMesh, "Assets/Mesh/box.obj");
-		editMesh.addColors(Color4b(255, 255, 255, 255));
-
-		_meshAsset = new MeshAsset();
-		_meshAsset->mesh.create(editMesh);
-
-		Vector<Entity*> entities;
-
-		for (int i = 0; i < 25; i++) {
-			auto* e = _scene.addEntity("Entity");
-			auto* t = e->transform();
-
-			entities.emplace_back(e);
-
-			auto* mr = e->addComponent<CMeshRenderer>();
-			mr->mesh = _meshAsset;
-
-			auto mtl = renderer->createMaterial();
-			mtl->setShader(_shader);
-			mtl->setParam("test_color", Color4f(1, 1, 1, 1));
-			mtl->setParam("mainTex", _testTexture);
-
-			mr->material = mtl;
-
-			const int col = 5;
-			int x = i % col;
-			int z = i / col;
-
-			if (x == 0) {
-				t->setLocalPos(0, 4, static_cast<float>(z));
-
-			}
-			else {
-				auto* parent = entities[z * col]->transform();
-				parent->addChild(e->transform());
-				t->setLocalPos(static_cast<float>(x), 0, 0);
-			}
-		}
-
-		//			editor->entitySelection.add(EntityId(1));
-		editor->entitySelection.add(EntityId(3));
-}
-#endif // 0
 
 	{
 		EngineContext::instance()->registerComponentType<CBoids>();

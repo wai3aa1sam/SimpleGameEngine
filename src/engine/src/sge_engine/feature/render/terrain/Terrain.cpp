@@ -26,6 +26,7 @@ const TypeInfo* TypeOf<my::Terrain>()
 			static FieldInfo fi[] = {
 
 				{"_terrainPos",	&This::_terrainPos  },
+				{"_lodFactor",	&This::_lodFactor   },
 			};
 			setFields(fi);
 		}
@@ -487,7 +488,7 @@ void Terrain::create(CreateDesc& desc_)
 		auto shader = Renderer::instance()->createShader("Assets/Shaders/my_terrain.shader");
 		for (auto& patch : getPatches())
 		{
-			patch->create(shader);
+			patch->create(this, shader);
 		}
 	}
 	{
@@ -548,20 +549,44 @@ void Terrain::render(RenderRequest& rdReq)
 
 void Terrain::update(RenderRequest& rdReq)
 {
-	for (Vec2i iPatch{ 0, 0 }; iPatch.y < _patchCount.y; )
-	{
-		//update();
-		SGE_DUMP_VAR(rdReq.cameraPos);
-		Vec2i startPatch = getPatchCoord(rdReq.cameraPos);
-		_updatePatchLOD(startPatch);
 
-		if (iPatch.x >= _patchCount.x - 1)
+	for (int py = 0; py < _patchCount.y; py++)
+	{
+		for (int px = 0; px < _patchCount.x; px++)
 		{
-			iPatch.y++;
-			iPatch.x = 0;
-			continue;
+			auto& patch = getPatch_unsafe(Vec2i(px, py));
+			patch->setLOD(rdReq.cameraPos);
 		}
-		iPatch.x++;
+	}
+
+	/*
+	--------> +x
+	|
+	|
+	\|/
+	+y
+	*/
+
+	Vec2f invPatchCount{ 1.0f / _patchCount.x, 1.0f / _patchCount.y };
+	for (int py = 0; py < _patchCount.y; py++)
+	{
+		for (int px = 0; px < _patchCount.x; px++)
+		{
+			auto& current	= getPatch_unsafe(Vec2i{ px,	 py } );
+			auto& top		= getPatch_clamp( Vec2i{ px,	 py - 1 });
+			auto& bottom	= getPatch_clamp( Vec2i{ px,	 py + 1 });
+			auto& left		= getPatch_clamp( Vec2i{ px - 1, py });
+			auto& right		= getPatch_clamp( Vec2i{ px + 1, py });
+
+			u8 tblr = 0b0000;
+			if (top->lod	> current->lod)	BitUtil::set(tblr,	3);
+			if (bottom->lod > current->lod)	BitUtil::set(tblr,	2);
+			if (left->lod	> current->lod)	BitUtil::set(tblr,	1);
+			if (right->lod	> current->lod)	BitUtil::set(tblr,	0);
+
+			current->spIndexBuffer.reset(_indexChunks[current->lod][tblr]);
+			current->uv = { invPatchCount.x * px, invPatchCount.y * py };
+		}
 	}
 }
 
@@ -583,20 +608,14 @@ void Terrain::_init()
 		Vec2f posOffset{ 0.0f, 0.0f };
 
 		Vec2f uvFactor{ 1.0f / (_patchCount.x * (_patchSize.x - 1)), 1.0f / (_patchCount.y * (_patchSize.y - 1)) };
-		for (Vec2i iPatchSize{ 0, 0 }; iPatchSize.y < _patchSize.y;)
+		for (int py = 0; py < _patchSize.y; py++)
 		{
-			auto height = 0.0f;
-
-			editMesh.pos.emplace_back(posOffset.x + iPatchSize.x, height, posOffset.y + iPatchSize.y);
-			editMesh.uv[0].emplace_back(iPatchSize.x * uvFactor.x, iPatchSize.y * uvFactor.y);
-
-			if (iPatchSize.x >= _patchSize.x - 1)
+			for (int px = 0; px < _patchSize.x; px++)
 			{
-				iPatchSize.y++;
-				iPatchSize.x = 0;
-				continue;
+				auto height = 0.0f;
+				editMesh.pos.emplace_back(posOffset.x + px, height, posOffset.y + py);
+				editMesh.uv[0].emplace_back(px * uvFactor.x, py * uvFactor.y);
 			}
-			iPatchSize.x++;
 		}
 	}
 
@@ -607,151 +626,20 @@ void Terrain::_init()
 
 	u8 tblr = 0b00000000;
 
-	for (Vec2i iPatch{ 0, 0 }; iPatch.y < _patchCount.y; )
+	for (int py = 0; py < _patchCount.y; py++)
 	{
-		Vec2i offset{ iPatch.x * (_patchSize.x - 1), iPatch.y * (_patchSize.y - 1) };
-		auto& patch = _patches.emplace_back(new Patch);
-
-		patch->spVertexBuffer = subMesh.vertexBuffer();
-		patch->spIndexBuffer.reset(_indexChunks[_maxLodIndex][tblr + 0]);
-		
-		patch->id  = iPatch;
-		patch->pos = Vec2f(static_cast<float>(offset.x), static_cast<float>(offset.y));
-
-		if (iPatch.x >= _patchCount.x - 1)
+		for (int px = 0; px < _patchCount.x; px++)
 		{
-			iPatch.y++;
-			iPatch.x = 0;
-			continue;
+			Vec2i offset{ px * (_patchSize.x - 1), py * (_patchSize.y - 1) };
+			auto& patch = _patches.emplace_back(new Patch);
+
+			patch->spVertexBuffer = subMesh.vertexBuffer();
+			patch->spIndexBuffer.reset(_indexChunks[_maxLodIndex][tblr + 0]);
+
+			patch->id  = Vec2i{ px, py };
+			patch->pos = Vec2f::s_cast(offset);
 		}
-		iPatch.x++;
 	}
-}
-
-void Terrain::_updatePatchLOD(Vec2i startPatch_)
-{
-	getPatch(startPatch_)->lod = _maxLodIndex;
-
-	for (Vec2i iPatch{ 0, 0 }; iPatch.y < _patchCount.y; )
-	{
-		//update();
-		if (iPatch != startPatch_)
-		{
-			auto& patch = getPatch_unsafe(iPatch);
-			auto diff = startPatch_ - iPatch;
-			diff.x = Math::abs(diff.x);
-			diff.y = Math::abs(diff.y);
-
-			auto dist = _maxLodIndex - (diff.x + diff.y);
-			if (dist > _maxLodIndex || dist <= 0)
-				patch->lod = 0;
-			else
-				patch->lod = dist;
-		}
-
-		if (iPatch.x >= _patchCount.x - 1)
-		{
-			iPatch.y++;
-			iPatch.x = 0;
-			continue;
-		}
-		iPatch.x++;
-	}
-
-	Vec2f invPatchCount{ 1.0f / _patchCount.x, 1.0f / _patchCount.y };
-	for (Vec2i iPatch{ 0, 0 }; iPatch.y < _patchCount.y; )
-	{
-		/*
-		--------> +x
-		|
-		|
-		\|/
-		+y
-		*/
-		auto& current	= getPatch_unsafe(iPatch);
-		auto& top		= getPatch_clamp(Vec2i{ iPatch.x, iPatch.y - 1 });
-		auto& bottom	= getPatch_clamp(Vec2i{ iPatch.x, iPatch.y + 1 });
-		auto& left		= getPatch_clamp(Vec2i{ iPatch.x - 1, iPatch.y });
-		auto& right		= getPatch_clamp(Vec2i{ iPatch.x + 1, iPatch.y });
-
-		u8 tblr = 0b0000;
-		if (top->lod <= current->lod)		BitUtil::unset(tblr,	3);
-		else								BitUtil::set(tblr,		3);
-
-		if (bottom->lod <= current->lod)	BitUtil::unset(tblr,	2);
-		else								BitUtil::set(tblr,		2);
-
-		if (left->lod <= current->lod)		BitUtil::unset(tblr,	1);
-		else								BitUtil::set(tblr,		1);
-
-		if (right->lod <= current->lod)		BitUtil::unset(tblr,	0);
-		else								BitUtil::set(tblr,		0);
-
-#if _SGE_TERRRAIN_DEBUG_PRINT
-		{
-			TempString rowStr;
-			auto str = std::to_string(tblr);
-			rowStr.append(str.c_str());
-			rowStr.append(": ");
-			//FmtTo(rowStr, "{},{}: = {} |", iPatch.x, iPatch.y, lod.c_str());
-			if (top->lod <= current->lod)		rowStr.push_back('0');
-			else								rowStr.push_back('1');
-			if (bottom->lod <= current->lod)	rowStr.push_back('0');
-			else								rowStr.push_back('1');
-			if (left->lod <= current->lod)		rowStr.push_back('0');
-			else								rowStr.push_back('1');
-			if (right->lod <= current->lod)		rowStr.push_back('0');
-			else								rowStr.push_back('1');
-			rowStr.append("\n");
-			//SGE_LOG("{}", rowStr);
-
-		}
-#endif // 0
-
-		current->spIndexBuffer.reset(_indexChunks[current->lod][tblr]);
-
-		current->uv = { invPatchCount.x * iPatch.x, invPatchCount.y * iPatch.y };
-		//int patchSize = Math::pow2(current->lod) + 1;
-		//current->size = Vec4i(patchSize, patchSize, _patchCount.x, _patchCount.y);
-		//current->info = Vec4f(static_cast<float>(iPatch.x), static_cast<float>(iPatch.y), uvOffset.x, uvOffset.y);
-
-		if (iPatch.x >= _patchCount.x - 1)
-		{
-			iPatch.y++;
-			iPatch.x = 0;
-			continue;
-		}
-		iPatch.x++;
-	}
-
-#if _SGE_TERRRAIN_DEBUG_PRINT
-	static u64 tick = 0;
-	if (tick % 14400 == 0)
-	{
-		TempString rowStr;
-		for (Vec2i iPatch{ 0, 0 }; iPatch.y < _patchCount.y; )
-		{
-			auto& patch = getPatch_unsafe(iPatch);
-			auto lod = std::to_string(patch->lod);
-			FmtTo(rowStr, "{},{}: = {} |", iPatch.x, iPatch.y, lod.c_str());
-
-			if (iPatch.x >= _patchCount.x - 1)
-			{
-				iPatch.y++;
-				iPatch.x = 0;
-
-				SGE_LOG(rowStr.c_str());
-				SGE_LOG("\n");
-				rowStr.clear();
-				continue;
-			}
-			iPatch.x++;
-		}
-		SGE_LOG("===============End");
-		SGE_LOG("\n");
-	}
-	tick++;
-#endif // 1
 }
 
 Vec2i Terrain::getPatchCoord(const Vec3f& camPos)

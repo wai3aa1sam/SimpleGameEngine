@@ -12,6 +12,8 @@
 namespace sge {
 namespace my {
 
+class Terrain;
+
 struct Terrain_CreateDesc
 {
 	Vec2i patchCount{ 1, 1 };
@@ -24,11 +26,11 @@ class _Terrain_Patch : public RefCountBase
 {
 public:
 	//virtual ~_Terrain_Patch() = default;
-	void create(Shader* shader)
-	{
-		_material = Renderer::instance()->createMaterial();
-		_material->setShader(shader);
-	}
+	void create(Terrain* terrain, Shader* shader);
+
+	Vec3f worldCenterPos() const;
+
+	void setLOD(const Vec3f& viewPos);
 
 	u8 tblr = 0b0000;
 	int lod = 0;
@@ -40,10 +42,14 @@ public:
 	SPtr<RenderGpuBuffer> spVertexBuffer;
 	SPtr<RenderGpuBuffer> spIndexBuffer;
 	SPtr<Material>		  _material;
+
+private:
+	Terrain* _terrain = nullptr;
 };
 
 class Terrain : public NonCopyable
 {
+	friend class _Terrain_Patch;
 public:
 	static constexpr int s_kMaxLOD = 10;
 	static constexpr int s_kMaxCombination = 16;
@@ -77,17 +83,18 @@ public:
 	const RenderMesh& getRenderMesh() const { return _testRenderMesh; }
 
 	Vec2i getPatchCoord(const Vec3f& pos);
+	Vec2f patchSize() const { return Vec2f::s_cast(_patchSize); }
+	
+	Vec3f terrainPos() const { return _terrainPos; }
 
 public:
-	Vec3f	_terrainPos{ 0, 0, 0 };
-
+	Vec3f _terrainPos{ 0, 0, 0 };
+	float _lodFactor = 5;
 private:
 	void _create(int width_, int height_) {};
 	void _init();
 
 	void update(RenderRequest& rdReq);
-
-	void _updatePatchLOD(Vec2i startPatch_);
 
 	void _error(StrView msg_);
 
@@ -131,8 +138,37 @@ SGE_INLINE void Terrain::_error(StrView msg_) { throw SGE_ERROR("{}", msg_); }
 
 #endif
 
+#if 0
+#pragma mark --- _Terrain_Patch-Impl ---
+#endif // 0
+#if 1    // ImageInfo
+
+inline void _Terrain_Patch::create(Terrain * terrain, Shader * shader)
+{
+	_terrain = terrain;
+	_material = Renderer::instance()->createMaterial();
+	_material->setShader(shader);
 }
 
+inline Vec3f _Terrain_Patch::worldCenterPos() const 
+{
+	auto s   = _terrain->patchSize();
+	auto centerPos = (Vec2f::s_cast(id) + 0.5f) * s;
+	auto o = _terrain->terrainPos() + Vec3f(centerPos.x, 0, centerPos.y);
+	return o;
+}
+
+inline void _Terrain_Patch::setLOD(const Vec3f& viewPos)
+{
+	auto distance = (worldCenterPos() - viewPos).length();
+	auto d = _terrain->patchSize().x * _terrain->_lodFactor;
+	lod = _terrain->_maxLodIndex - static_cast<int>(distance / d);
+	lod = Math::clamp(lod, 0, _terrain->_maxLodIndex);
+}
+
+#endif
+
+}
 
 #if 1
 
