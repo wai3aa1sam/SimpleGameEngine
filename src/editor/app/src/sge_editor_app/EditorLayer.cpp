@@ -211,6 +211,21 @@ void EditorLayer::create()
 		auto* cBoids = _boidsEnt->addComponent<CBoids>();
 		cBoids->_boids.start();
 	}
+
+	{
+		EngineContext::instance()->registerComponentType<CTerrain>();
+		_terrainEnt = _scene.addEntity("Terrain");
+		auto* cTerrain = _terrainEnt->addComponent<CTerrain>();
+		
+		my::Terrain_CreateDesc terrainDesc;
+		Image img;
+		img.loadPngFile("Assets/Terrain/TerrainTest/TerrainHeight_Small.png");
+
+		terrainDesc.patchCount = { 8, 8 };
+
+		terrainDesc.heightMap = &img;
+		cTerrain->_terrain.create(terrainDesc);
+	}
 }
 
 void EditorLayer::onUpdate()
@@ -265,6 +280,9 @@ void EditorLayer::onRender(RenderContext& rdCtx_, RenderData& rdData_)
 
 #else
 
+	auto* cTerrain = _terrainEnt->getComponent<CTerrain>(); (void)cTerrain;
+	cTerrain->_terrain.render(rdReq);
+
 	auto* cBoids = _boidsEnt->getComponent<CBoids>(); (void)cBoids;
 	cBoids->_boids.render(rdReq);
 
@@ -272,11 +290,6 @@ void EditorLayer::onRender(RenderContext& rdCtx_, RenderData& rdData_)
 
 	_hierarchyWindow.draw(rdReq, _scene);
 	_inspectorWindow.draw(rdReq, _scene);
-
-	{
-		auto win = EditorUI::Window("test");
-		ImGui::Text(Fmt("Framerate: {}", ImGui::GetIO().Framerate).c_str());
-	}
 	
 	//ImGui::ShowDemoWindow(nullptr);
 }

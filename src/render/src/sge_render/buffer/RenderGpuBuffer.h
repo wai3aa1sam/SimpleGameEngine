@@ -26,9 +26,12 @@ public:
 	void create(CreateDesc& desc);
 
 	void uploadToGpu(ByteSpan data, size_t offset = 0);
-	size_t bufferSize() const { return _desc.bufferSize; }
 
 	const CreateDesc& desc() const { return _desc; }
+
+	size_t stride()			const { return _desc.stride; }
+	size_t bufferSize()		const { return _desc.bufferSize; }
+	size_t elementCount()	const { return _desc.bufferSize / (_desc.stride / 8); }
 
 protected:
 	virtual void onCreate(CreateDesc& desc) = 0;

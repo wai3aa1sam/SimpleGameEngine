@@ -84,6 +84,16 @@ struct RenderDataTypeUtil {
 	template<> static constexpr Type get<Texture2D>()	{ return Type::Texture2D; }
 	template<> static constexpr Type get<Texture3D>()	{ return Type::Texture3D; }
 	template<> static constexpr Type get<TextureCube>()	{ return Type::TextureCube; }
+
+	static constexpr size_t getByteSize(Type type_)
+	{
+		switch (type_)
+		{
+			case Type::UInt16: return 2;
+			case Type::UInt32: return 4;
+			default:		   throw SGE_ERROR("unspport type!");
+		}
+	}
 };
 
 }

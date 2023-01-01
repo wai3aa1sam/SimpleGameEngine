@@ -62,6 +62,24 @@ namespace Math {
 		return x + 1;
 	}
 
+	template<class T> T pow(const T& left, const T& right) { return std::pow(left, right); }
+
+	template<class T> constexpr T pow2(T v_)				{ return (T(0x01) << v_); }
+
+	template<typename T> constexpr T log2 (T val) {
+		//static_assert(std::is_unsigned_v<T>());
+		if (val == 0) return std::numeric_limits<T>::max();
+		if (val == 1) return 0;
+		T ret = 0;
+		while (val > 1) {
+			val >>= 1;
+			ret++;
+		}
+		return ret;
+	}
+
+//--------------
+
 	//Splits a floating-point value into fractional and integer parts
 	SGE_INLINE float	modf	( float  v, float  *i ) { return std::modf( v, i ); }
 	SGE_INLINE double	modf	( double v, double *i ) { return std::modf( v, i ); }

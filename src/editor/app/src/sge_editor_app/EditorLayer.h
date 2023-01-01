@@ -2,6 +2,7 @@
 #include "EditorApp.h"
 
 #include <sge_engine/feature/boids/Boids.h>
+#include <sge_engine/feature/render/terrain/Terrain.h>
 
 #if 0
 #pragma mark --- XXXX-Impl ---
@@ -60,7 +61,8 @@ private:
 
 	RenderTerrain		_terrain;
 
-	Entity* _boidsEnt = nullptr;
+	Entity* _terrainEnt		= nullptr;
+	Entity* _boidsEnt		= nullptr;
 };
 
 }

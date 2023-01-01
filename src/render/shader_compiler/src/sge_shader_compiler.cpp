@@ -23,6 +23,7 @@ protected:
 		compile("Assets/Shaders/imgui.shader");
 		compile("Assets/Shaders/line.shader");
 		compile("Assets/boids/fish_animation.shader");
+		compile("Assets/Shaders/my_terrain.shader");
 	}
 
 	void compile(StrView shaderFilename) {
