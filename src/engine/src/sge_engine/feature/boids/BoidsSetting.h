@@ -16,7 +16,7 @@ class BoidsSetting : public NonCopyable
 	using T = float;
 	using Vec3 = Vec3<T>;
 public:
-	size_t objectCount = 10;
+	size_t objectCount = 10000;
 
 	// Debug
 	bool isUseCuboid			= true;

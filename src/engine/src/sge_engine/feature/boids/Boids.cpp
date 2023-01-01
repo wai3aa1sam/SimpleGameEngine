@@ -333,8 +333,10 @@ void Boids::render(RenderRequest& rdReq)
 		obj->_mtl->setParam("_mask_white",			_mask_white);
 #endif // 0
 
-		//rdReq.drawMesh(SGE_LOC, _meshAsset->mesh, obj->_mtl, obj->modelMatrix(_setting._objScale));
-		rdReq.drawLine(obj->_position, obj->_position + obj->forward() * 1.02f);
+		if (_setting.isDrawMesh)
+			rdReq.drawMesh(SGE_LOC, _meshAsset->mesh, obj->_mtl, obj->modelMatrix(_setting._objScale));
+		else
+			rdReq.drawLine(obj->_position, obj->_position + obj->forward() * 1.02f);
 	}
 
 #endif // SGE_IS_MT_BOIDS

@@ -172,7 +172,7 @@ void EditorLayer::onRender(RenderContext& rdCtx_, RenderData& rdData_)
 #else
 
 	auto* cTerrain = _terrainEnt->getComponent<CTerrain>(); (void)cTerrain;
-	cTerrain->_terrain.render(rdReq);
+	//cTerrain->_terrain.render(rdReq);
 
 	auto* cBoids = _boidsEnt->getComponent<CBoids>(); (void)cBoids;
 	cBoids->_boids.render(rdReq);
