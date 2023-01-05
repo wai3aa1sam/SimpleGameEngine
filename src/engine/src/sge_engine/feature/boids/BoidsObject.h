@@ -75,12 +75,15 @@ struct BoidsData
 
 	Vec3f _position	= Vec3f::s_zero();
 	Vec3f _forward	= Vec3f::s_zero();
+	float _speed	= 0;
+
 };
 
 struct BoidsObjUpdateData
 {
 	Vec3f _position	= Vec3f::s_zero();
 	Vec3f _forward	= Vec3f::s_zero();
+	float _speed	= 0;
 
 	Quat4f rotation() const { return Quat4f::s_fromToRotation(Vec3f::s_forward(), _forward); }
 
