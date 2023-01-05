@@ -9,7 +9,7 @@ namespace sge {
 
 #define SGE_IS_BOIDS_NO_NEAR 0
 
-#define SGE_IS_MT_BOIDS 0
+#define SGE_IS_MT_BOIDS 1
 
 class BoidsSetting : public NonCopyable
 {
@@ -29,8 +29,8 @@ public:
 	float lineLength			= 1.5f;
 
 	// Settings
-	float minSpeed = 4;
-	float maxSpeed = 10;
+	float minSpeed = 10;
+	float maxSpeed = 15;
 	//float nearRadius = 2.5f;
 	//float avoidRadius = 1;
 	float maxSteerForce = 3;

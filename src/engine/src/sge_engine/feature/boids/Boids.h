@@ -15,6 +15,9 @@
 
 namespace sge {
 
+inline Atomic<size_t> kTest = 0;
+inline Atomic<bool>   isAll = false;
+
 class BoidsObject;
 class BoidsObstacle;
 
@@ -117,13 +120,18 @@ private:
 
 	Vec3 avoidObstacleRay(const Vec3& origin, const Vec3& forward, const Quat4& curRot);
 
-#if 0
+#if SGE_IS_MT_BOIDS
 	struct Buf
 	{
+		using Object = BoidsData;
 		static constexpr size_t s_kBufCount = 16;
-		Vector<BoidsObject*> buf;
-		bool				 isOwn = false;
-		int					 ownThread = -1;
+		Vector<Object> buf;
+		Atomic<int>			 ownThread = -1;
+
+		Buf()
+		{
+			ownThread.store(-1);
+		}
 
 		static Buf* getBufs()
 		{
@@ -136,39 +144,23 @@ private:
 			return getBufs()[threadLocalId()];
 		}
 
-		static Vector<BoidsObject*>& getTmpObjBuffer()
+		static Vector<Object>& getTmpObjBuffer()
 		{
-			if (getBuf().isOwn)
+			if (getBuf().isOtherOwning())
 			{
 				throw SGE_ERROR("thread{} is owning, thread {} is attempt to get", getBuf().ownThread, threadLocalId());
 			}
-			getBuf().isOwn = true;
-			getBuf().ownThread = threadLocalId();
+			getBuf().ownThread.store(threadLocalId());
 			return getBuf().buf;
 		}
 
 		static void freeOwnBuf()
 		{
-			getBuf().isOwn = false;
-			getBuf().ownThread = -1;
+			getBuf().ownThread.store(-1);
 		}
 
-		static void checkValid()
-		{
-			for (size_t i = 0; i < s_kBufCount; i++)
-			{
-				if (getBufs()[i].isOwn)
-				{
-					throw SGE_ERROR("other is owning");
-				}
-			}
-		}
-
-		bool isOtherOwning() const { return isOwn; }
+		bool isOtherOwning() const { return ownThread.load() != -1; }
 	};
-
-#else
-	
 #endif // 0
 
 public:
@@ -318,6 +310,7 @@ private:
 
 				update._position = read._position;
 				update._forward  = read._forward;
+				update._speed	 = read._speed;
 			}
 		}
 	};
@@ -417,7 +410,7 @@ private:
 
 			auto& cuboid			= boids->_cuboid_mt;
 
-			auto& tempObjs = Buf<BoidsData>::getTmpObjBuffer();
+			auto& tempObjs = Buf::getTmpObjBuffer();
 			//Vector<BoidsObject*> tempObjs;
 			
 			const auto& setting = boids->_setting;
@@ -459,7 +452,6 @@ private:
 
 					if (dist_sq < setting.alignmentRadius * setting.alignmentRadius)
 					{
-						//if (center_offset.dot(aglinmentVel) > _setting.alignmentViewAngleCos)
 						target.totalAlignmentDir += nearObj._forward;
 						target.alignmentCount++;
 					}
@@ -472,7 +464,7 @@ private:
 				}
 			}
 
-			Buf<BoidsData>::freeOwnBuf();
+			Buf::freeOwnBuf();
 		}
 	};
 
@@ -480,6 +472,7 @@ private:
 	{
 		static constexpr int s_kJobCount = 16;
 		size_t _objPerSecUpdated = 0;
+		size_t _remainForlastBatch = 0;
 
 		struct Data
 		{
@@ -488,6 +481,8 @@ private:
 			BoidsData*				updateData	= nullptr;
 
 			Boids*					boids		= nullptr;
+
+			size_t timeSliceIdx = 0;
 		};
 
 		Data _data[s_kJobCount];
@@ -591,7 +586,7 @@ private:
 				const auto& totalCohesionCenter = read.totalCohesionCenter;
 
 				auto accel = Vec3f::s_zero();
-				auto vel = read._forward * Physics::random<float>();
+				auto vel = read._forward * read._speed;
 				float mass = 1.0f;
 
 				if (separationCount)
@@ -629,6 +624,7 @@ private:
 
 				update._forward = dir;
 				update._position += vel * dt;
+				update._speed = speed;
 
 				if (!boids->boundPos(update._position))
 				{
