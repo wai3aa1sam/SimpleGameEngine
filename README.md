@@ -27,9 +27,17 @@
 - https://www.cs.princeton.edu/courses/archive/spr01/cs598b/papers/lindstrom96.pdf
 
 ## JobSystem
-- There is no demo in the current stage.
-- Trying to use the Job System with boids to achieve better optimization.
-- Coming soon.
+
+#  multi-threaded version boids demo
+- for 10000 boids objects
+- single-threaded update loop : 18.35ms (~54.5fps)
+- multi-threaded update-loop  : 2.96ms  (~337.8fps, x6.19 speedup)
+
+- warning: single-threaded version are not cache friendly, the result may have some bias.
+
+![image](https://user-images.githubusercontent.com/120044193/210845309-b2b23266-132a-4dc2-9b1f-292cf629bc9d.png)
+
+![image](https://user-images.githubusercontent.com/120044193/210845326-6cbb5777-920d-4e89-a9f2-38e9a65a8d53.png)
 
 ## How to Build 
 
