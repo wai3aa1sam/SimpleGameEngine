@@ -22,8 +22,10 @@ public:
 	i16			localId() const	{ return _localId; }
 	const char* name() const	{ return _name.c_str(); }
 
-	Job* allocateJob()	{ return _jobAllocator.allocate(); }
+	Job* allocateJob()	{ return _jobAllocator.alloc(); }
 	void clearJobs()	{ return _jobAllocator.clear(); }
+
+	JobAllocator& jobAllocator() { return _jobAllocator; }
 
 	//void* allocateParForData(size_t nBytes) { return _parForAllocator.allocate(nBytes); }
 	//void clearParForData()					{ return _parForAllocator.clear(); }

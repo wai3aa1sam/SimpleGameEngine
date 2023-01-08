@@ -8,6 +8,7 @@ namespace sge {
 
 class WorkerThread;
 class Job;
+class JobSystem;
 
 struct ThreadPool_CreateDesc
 {

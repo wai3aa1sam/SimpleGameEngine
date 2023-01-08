@@ -20,9 +20,9 @@ public:
 		//clear();
 	}
 
-	Job* allocate()
+	Job* alloc(u32 size = sizeof(Job))
 	{
-		Job* job = static_cast<Job*>(_allocator.allocate(sizeof(Job)));
+		Job* job = static_cast<Job*>(_allocator.allocate(size));
 		//_jobs.emplace_back(job);
 		return job;
 	}

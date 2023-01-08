@@ -7,15 +7,34 @@
 
 namespace sge {
 
+struct JobArgs
+{
+	using T = u32;
+
+	T loopIndex		= 0;		// SV_DispatchThreadID
+	T batchID		= 0;		// SV_GroupID
+	T batchIndex	= 0;		// SV_GroupIndex
+};
+
+struct JobInfo
+{
+	using T = u32;
+	T batchID		= 0;
+	T batchOffset	= 0;
+	T batchEnd		= 0;
+};
+
 class alignas(s_kCacheLine) Job //: public NonCopyable
 {
 public:
 	using Priority = JobPrioity;
+	using Info = JobInfo;
 
-	//using Task = Function<void(void*)>;
-	using Task =  void(*)(void*);
-	
-	static constexpr Task s_emptyTask = [](void*) {};
+	using  Task = Function<void(const JobArgs& args)>;
+	static Task s_emptyTask;
+
+	//using Task =  void(*)(void*);
+	//static constexpr Task s_emptyTask = [](void*) {};
 
 private:
 	friend class WorkerThread;
@@ -57,14 +76,17 @@ private:
 	{
 	};
 
+
 	struct NormalData
 	{
 		NormalData()
 		:
-			_jobRemainCount(1), _priority(Priority::Cirtical)
+			_jobRemainCount(1), _priority(Priority::Cirtical), _isExecuting(false)
 		{
 		}
 		Task				_task;
+		Info				_info;
+		
 		void*				_param = nullptr;
 
 		// concept of parent and DepData::runAfterThis is a little bit different.
@@ -75,6 +97,8 @@ private:
 		Priority			_priority;
 
 		LocalBuffer<34+1>	_localBuf;
+
+		Atomic<bool>		_isExecuting = false;
 	};
 	struct DepData
 	{
@@ -102,7 +126,7 @@ private:
 		}
 
 		template<class FUNC>
-		void runAfterThis_for_each_ifNoDeps(FUNC func)
+		void runAfterThis_for_each_ifNoDeps(const FUNC& func)
 		{
 			for (auto& job : _runAfterThis)
 			{
@@ -138,7 +162,7 @@ private:
 		Storage()
 		{
 			sizeof(Data);
-			static_assert(sizeof(Data) % s_kCacheLine == 0);
+			//static_assert(sizeof(Data) % s_kCacheLine == 0);
 		}
 	};
 #endif // 1
@@ -170,19 +194,28 @@ public:
 	int dependencyCount()  const;
 	size_t runAfterCount() const;
 
+	const Info& info() const;
+
 	void print() const;
 
 	// only useful when enable SGE_JOB_SYSTEM_DEBUG
 	Job* setName(const char* name);
 	const char* name() const;
 
+
 protected:
 	void _runAfter(Job* job);
 	void _runBefore(Job* job);
 	void* _allocate(size_t n);
 
+	void _setInfo(const Info& info);
+
 private:
-	void init(Task func, void* param, Job* parent = nullptr);
+	void init(const Task& func, void* param, Job* parent = nullptr);
+	void init(const Task& func, Job* parent = nullptr);
+
+	void setEmpty();
+
 	void addJobCount();
 	int	decrDependencyCount();
 

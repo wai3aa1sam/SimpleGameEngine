@@ -36,19 +36,17 @@ void WorkerThread::onProc()
 {
 	_threadLocalId = _storage->localId();
 
-#if SGE_ENABLE_TRACY_PROILER
 	SGE_PROFILE_SET_THREAD_NAME(_storage->name());
 	//SGE_LOG("threadname: {}", tracy::GetThreadName(tracy::GetThreadHandle()));
-#endif // SGE_ENABLE_TRACY_PROILER
-
 
 	std::exception_ptr ptr = nullptr;
 	debugLog("=== _threadLocalId {}, localId {} onProc()", _threadLocalId, localId());
 
-
 	try
 	{
 		Job* job = nullptr;
+
+		auto* jsys = JobSystem::instance();
 
 		for (;;)
 		{
@@ -57,7 +55,7 @@ void WorkerThread::onProc()
 				_storage->wake();
 
 				debugLog("=== thread {} execute job", localId());
-				JobSystem::_execute(job);
+				jsys->_execute(job);
 				//job->_execute();
 				job = nullptr;
 				_jobs.try_pop(job);

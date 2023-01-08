@@ -46,10 +46,10 @@ JobSystem::~JobSystem()
 	_instance = nullptr;
 }
 
-void JobSystem::waitForComplete(Job* job)
+void JobSystem::waitForComplete(JobHandle job)
 {
-	auto& threadPool = JobSystem::instance()->_threadPool;
-	auto* jsys = JobSystem::instance();
+	auto* jsys = this;
+	auto& threadPool = this->_threadPool;
 	auto& storage = *jsys->_storages[enumInt(ThreadType::Main)]; (void)storage;
 
 	while (!job->isCompleted())
@@ -58,86 +58,78 @@ void JobSystem::waitForComplete(Job* job)
 
 		if (threadPool.tryGetJob(tmp))
 		{
-			//storage.wake();
 			_execute(tmp);
 		}
 
 		sleep_ms(s_kBusySleepTimeMS);
-		//storage.sleep();
 	}
 
 	//atomicLog("=== done waitForComplete()");
 }
 
-void JobSystem::submit(Job* job)
+void JobSystem::submit(JobHandle job)
 {
-
 #if SGE_JOB_SYSTEM_ENABLE_SINGLE_THREAD_DEBUG
 	_execute(job);
 #else
-	auto& threadPool = JobSystem::instance()->_threadPool;
+	auto& threadPool = instance()->_threadPool;
 	threadPool.submit(job);
 #endif
 }
 
-Job* JobSystem::allocateJob()
-{
-	auto* jsys = JobSystem::instance();
-	jsys->_checkError();
-
-	auto* storage = jsys->_storages[threadLocalId()].get();
-	auto* job = storage->allocateJob();
-
-	return job;
-}
-
-Job* JobSystem::createJob(Task task, void* param)
-{
-	auto* job = allocateJob();
-	job->init(task, param);
-
-#if SGE_JOB_SYSTEM_DEBUG
-	DependencyManager::addVertex(job);
-#endif // 0
-
-	return job;
-}
-
-Job* JobSystem::createSubJob(Job* parent, Task task, void* param)
-{
-	auto* job = allocateJob();
-	job->init(task, param, parent);
-	return job;
-}
-
 void JobSystem::clearJobs()
 {
-	auto* jsys = JobSystem::instance();
+	auto* jsys = this;
 	jsys->_checkError();
 
 	auto* storage = jsys->_storages[threadLocalId()].get();
 	storage->clearJobs();
 }
 
-bool JobSystem::_tryGetJob(Job*& job)
+JobHandle JobSystem::createJob(const Task& task, void* param)
 {
-	return _threadPool.tryGetJob(job);
+	auto* job = createSubJob(nullptr, task, param);
+
+	#if SGE_JOB_SYSTEM_DEBUG
+	DependencyManager::addVertex(job);
+	#endif // 0
+
+	return job;
 }
+
+JobHandle JobSystem::createSubJob(JobHandle parent, const Task& task, void* param)
+{
+	auto* job = JobSystem::allocateJob();
+	job->init(task, param, parent);
+	return job;
+}
+
+JobHandle JobSystem::createEmptyJob()
+{
+	auto* job = JobSystem::allocateJob();
+	job->setEmpty();
+	return job;
+}
+
 
 size_t JobSystem::workersCount() 
 {
-	auto* jsys = JobSystem::instance();
+	auto* jsys = this;
 	jsys->_checkError();
 	return jsys->_threadPool.workerCount();
 }
 
 const char* JobSystem::threadName()
 {
-	auto* jsys = JobSystem::instance();
+	auto* jsys = this;
 	jsys->_checkError();
 	return jsys->_storages[threadLocalId()]->name();
 }
 
+bool JobSystem::_tryGetJob(Job*& job)
+{
+	return _threadPool.tryGetJob(job);
+}
 
 void JobSystem::_complete(Job* job)
 {
@@ -174,20 +166,95 @@ void JobSystem::_execute(Job* job)
 #endif // 0
 
 	auto& task  = job->_storage._task;
-	auto& param = job->_storage._param;
-	task(param);
+	auto& info	= job->info();
+
+	job->_storage._isExecuting.store(true);
+
+	JobArgs args;
+	args.batchID = info.batchID;
+
+	for (u32 i = info.batchOffset; i < info.batchEnd; ++i)
+	{
+		args.loopIndex  = i;
+		args.batchIndex = i - info.batchOffset;
+		task(args);
+	}
+
 	_complete(job);
+}
+
+JobHandle JobSystem::dispatch(const Task& task, u32 loopCount, u32 batchSize, JobHandle dependOn)
+{
+	return _dispatch(task, loopCount, batchSize, dependOn);
+}
+
+JobHandle JobSystem::_dispatch(const Task& task, u32 loopCount, u32 batchSize, JobHandle dependOn)
+{
+	if (loopCount == 0 || batchSize == 0)
+		return nullptr;
+
+	const u32 nBatchGroup	= JobSystem::dispatchBatchGroup(loopCount, batchSize);
+
+	Job* spwanJob 	= JobSystem::allocateJob();
+	{
+		JobInfo info;
+		info.batchEnd = 1;
+		spwanJob->_setInfo(info);
+	}
+
+	auto spwanTask = [spwanJob, task, loopCount, batchSize, nBatchGroup](const JobArgs& args)
+	{
+		JobInfo info;
+
+		for (u32 iBatchGroup = 0; iBatchGroup < nBatchGroup; iBatchGroup++)
+		{
+			Job* job = JobSystem::allocateJob();
+			job->init(task, spwanJob);
+
+			info.batchID	 = iBatchGroup;
+			info.batchOffset = iBatchGroup * batchSize;
+			info.batchEnd	 = Math::min(info.batchOffset + batchSize, loopCount);
+
+			job->_setInfo(info);
+
+			submit(job);
+		}
+	};
+	spwanJob->init(spwanTask);
+
+	if (dependOn)
+		spwanJob->runAfter(dependOn);
+
+	return spwanJob;
+}
+
+
+u32 JobSystem::dispatchBatchGroup(u32 loopCount, u32 batchGroup)
+{
+	// overestimate
+	return (loopCount + batchGroup - 1) / batchGroup;
+}
+
+JobAllocator& JobSystem::_defaultJobAllocator()
+{
+	auto* jsys = JobSystem::instance();
+	jsys->_checkError();
+
+	auto* storage = jsys->_storages[threadLocalId()].get();
+	return storage->jobAllocator();
 }
 
 void JobSystem::_checkError()
 {
-	if (!(threadLocalId() >= 0 && threadLocalId() < JobSystem::instance()->_storages.size()))
+	if (!(threadLocalId() >= 0 && threadLocalId() < this->_storages.size()))
 	{
-		atomicLog("=== threadLocalId() {}, localId {} _checkError()", threadLocalId(), JobSystem::instance()->_storages[threadLocalId()]->localId());
+		atomicLog("=== threadLocalId() {}, localId {} _checkError()", threadLocalId(), this->_storages[threadLocalId()]->localId());
 	}
 
-	SGE_ASSERT(threadLocalId() >= 0 && threadLocalId() < JobSystem::instance()->_storages.size());
-	SGE_ASSERT(JobSystem::instance()->_storages[threadLocalId()]);
+	SGE_ASSERT(threadLocalId() >= 0 && threadLocalId() < this->_storages.size());
+	SGE_ASSERT(this->_storages[threadLocalId()]);
 }
+
+
 
 }

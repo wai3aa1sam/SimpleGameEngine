@@ -12,6 +12,8 @@ namespace sge {
 
 // TODO: prioirty
 
+using JobHandle = Job*;
+
 class JobSystem
 {
 	friend class WorkerThread;
@@ -22,42 +24,55 @@ private:
 	template <class T> using ParForData = typename _parallel_for_impl::Data<T>;
 	template <class T> using ParForTask = typename ParForData<T>::Task;
 
-
-
 public:
 	using Task = Job::Task;
+	using CRef_JobHandle = const JobHandle&;
 
+public:
+	static JobSystem* instance() { return _instance; }
+public:
 	JobSystem();
 	~JobSystem();
-	static JobSystem* instance() { return _instance; }
 
-	static void waitForComplete(Job* job);
+	static void submit(JobHandle job);
 
-	static void submit(Job* job);
+	void clearJobs();
 
-	static Job* createJob(Task task, void* param);
-	static Job* createSubJob(Job* parent, Task task, void* param);
-	template<class T> static Job* createAndRunNJobs(Task task, T* continuous_data, size_t n);
+	template<class T>
+	JobHandle dispatch(T& obj, u32 loopCount, u32 batchSize, JobHandle dependOn = nullptr);
 
-	static void clearJobs();
+	JobHandle dispatch(const Task& task, u32 loopCount, u32 batchSize, JobHandle dependOn = nullptr);
+
+	void waitForComplete(JobHandle job);
+
+	JobHandle createJob(const Task& task, void* param);
+	
+	JobHandle createSubJob(JobHandle parent, const Task& task, void* param);
+
+	JobHandle createEmptyJob();
 
 	template<class T, class BATCHER = ByteBatcher<>>
-	static Job* parallel_for(T* data, size_t count, ParForTask<T> task, BATCHER batcher = ByteBatcher<>());
+	JobHandle parallel_for(T* data, size_t count, ParForTask<T> task, BATCHER batcher = ByteBatcher<>());
 
-	static size_t workersCount();
-
-	static const char* threadName();
+	size_t		workersCount();
+	const char*	threadName();
 
 protected:
-	static Job* allocateJob();
 	bool _tryGetJob(Job*& job);
-	
+
+	JobHandle _dispatch(const Task& task, u32 loopCount, u32 batchSize, JobHandle dependOn = nullptr);
+
+	void _checkError();
+
+	static u32  dispatchBatchGroup(u32 loopCount, u32 batchSize);
+
+	template<class ALLOCATOR = JobAllocator>
+	static Job* allocateJob(ALLOCATOR& allocator = JobSystem::_defaultJobAllocator());
+
 	static void _execute(Job* job);
 	static void _complete(Job* job);
 
-	void _dependencyManager_complete(Job* job);
-
-	void _checkError();
+	static JobAllocator& _defaultJobAllocator();
 
 private:
 	static JobSystem* _instance;
@@ -77,18 +92,16 @@ private:
 #endif // 0
 #if 1
 
-template<class T> inline 
-Job* JobSystem::createAndRunNJobs(Task task, T* continuous_data, size_t n)
+template<class ALLOCATOR> inline
+Job* JobSystem::allocateJob(ALLOCATOR& allocator)
 {
-	auto waitJob = createJob(Job::s_emptyTask, nullptr);
-	auto* p = continuous_data;
-	for (size_t i = 0; i < n; i++, ++p)
-	{
-		auto* subJob = createSubJob(waitJob, task, p);
-		submit(subJob);
-	}
-	submit(waitJob);
-	return waitJob;
+	return allocator.alloc(sizeof(Job));
+}
+
+template<class T> inline
+JobHandle JobSystem::dispatch(T& obj, u32 loopCount, u32 batchSize, JobHandle dependOn)
+{
+	return _dispatch(std::bind(&T::execute, &obj, std::placeholders::_1), loopCount, batchSize, dependOn);
 }
 
 template<class T, class BATCHER> inline

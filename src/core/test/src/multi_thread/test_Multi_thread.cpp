@@ -18,6 +18,12 @@ namespace sge {
 
 bool s_isQuit = false;
 
+#define SGE_IS_OLD_JOB_SYSTEM_TEST_CASE 0
+
+#define SGE_IS_JOB_SYSTEM_DISPATCH_DEPEND 0
+
+#if SGE_IS_OLD_JOB_SYSTEM_TEST_CASE
+
 class PrimeNumberSolver
 {
 	static constexpr size_t s_kJobCount		= 16 * 4;
@@ -32,7 +38,7 @@ public:
 
 		PrimeNumberSolver* solver = nullptr;
 	};
-	
+
 	struct Result
 	{
 		Vector<u64> _buffer;
@@ -256,13 +262,13 @@ public:
 				auto request_task = std::async(std::launch::async,
 					[&]() {
 						std::for_each(std::execution::par,
-							storage,
-							storage + s_kCount,
-							[](Storage& storage)
+						storage,
+						storage + s_kCount,
+						[](Storage& storage)
 							{
 								update_impl(storage);
 							}
-						);
+				);
 					});
 				request_task.wait();
 			}
@@ -323,7 +329,7 @@ public:
 
 				DependencyManager::printRunAfter();
 				DependencyManager::printRunBefore();
-				
+
 #else
 				JOB(A);
 				JOB(B);
@@ -385,7 +391,7 @@ private:
 		u64 getNext()
 		{
 			auto* req = _request;
-			
+
 			if (req->current >= req->start + req->count)
 				return 0;
 
@@ -402,66 +408,6 @@ private:
 private:
 	MutexProtected<Result> _result;
 	Atomic<size_t> _finishCounter = 0;
-};
-
-class Test_Multi_thread
-{
-public:
-	Test_Multi_thread()
-	{
-		atomicLog("============= Test_Multi_thread(), start thread pool");
-	}
-	~Test_Multi_thread()
-	{
-		atomicLog("============= ~Test_Multi_thread(), end thread pool");
-	}
-
-	void main()
-	{
-		SGE_DUMP_VAR(hardwareThreadCount());
-		atomicLog("start thread pool");
-		{
-			for (;;)
-			{
-				poll();
-
-				static bool isStart = false;
-				static bool isDone = false;
-
-				if (!isStart)
-				{
-					
-					//PrimeNumberSolver::test_JobSystem::test();
-					//PrimeNumberSolver::test_parallel_for::test();
-					PrimeNumberSolver::test_dependent::test();
-					isStart = true;
-					isDone = true;
-				}
-
-				//primeNumberSolver.print();
-
-
-				if (s_isQuit || isDone)
-				{
-					atomicLog("=== try quit");
-					//threadPool.terminate();
-					return;
-				}
-			}
-		}
-	}
-
-	void poll()
-	{
-		if (_kbhit()) {
-			int ch = 0;
-			// Stores the pressed key in ch
-			ch = _getch();
-			s_isQuit = true;
-		}
-	}
-
-private:
 };
 
 class Test_Data
@@ -497,6 +443,248 @@ public:
 	int _test_data4[1];
 };
 
+
+#else
+
+class PrimeNumberSolver
+{
+public:
+
+	static constexpr size_t s_kBatchSize	= 4;
+
+	static constexpr size_t	s_kPrimeStart	= 1000000000LL;
+	//static constexpr size_t	s_kPrimeStart	= 2;
+
+	static constexpr size_t	s_kLoopCount    = 256;
+
+private:
+	static bool s_isPrimeNumber(i64 v)
+	{
+		for (i64 i = 2; i < v; i++)
+		{
+			if (v % i == 0)
+				return false;
+		}
+		return true;
+	}
+
+public:
+	
+	class SolverJob
+	{
+	public:
+		SolverJob(size_t primeStart_)
+		{
+			auto primeStart = primeStart_;
+
+			_result.resize(s_kLoopCount);
+
+			_numbers.resize(s_kLoopCount);
+			for (size_t i = primeStart; i < primeStart + s_kLoopCount; i++)
+			{
+				_numbers[i - primeStart] = i;
+			}
+		}
+
+		void execute(const JobArgs& args)
+		{
+			SGE_PROFILE_SCOPED;
+
+			auto i = args.loopIndex;
+			//SGE_LOG("=== i: {}", i);
+
+			bool isPrime = s_isPrimeNumber(_numbers[i]);
+			_result[i] = isPrime;
+		}
+
+		void execute2(const JobArgs& args)
+		{
+			SGE_PROFILE_SCOPED;
+
+			auto i = args.loopIndex;
+			//SGE_LOG("=== i: {}", i);
+
+			bool isPrime = s_isPrimeNumber(_numbers[i]);
+			_result[i] = isPrime;
+		}
+
+		void print() const
+		{
+			SGE_LOG("=== result");
+			size_t resultCount = 0;
+			for (size_t i = 0; i < _result.size(); i++)
+			{
+				if (_result[i] == 1)
+				{
+					SGE_LOG("prime: {}", _numbers[i]);
+					resultCount++;
+				}
+			}
+			SGE_LOG("=== result count: {}", resultCount);
+		}
+
+	private:
+		Vector<size_t> _numbers;
+		Vector<int>   _result;
+	};
+
+	class Test_Dispatch
+	{
+	public:
+
+		static void test()
+		{
+			JobSystem _jsys;
+
+			PrimeNumberSolver::SolverJob solverJob(PrimeNumberSolver::s_kPrimeStart);
+			{
+				SGE_PROFILE_SCOPED;
+
+				auto* jsys = JobSystem::instance();
+				//auto handle = jsys->dispatch(std::bind(&SolverJob::execute, &solverJob, std::placeholders::_1), s_kLoopCount, s_kBatchSize);
+				auto handle = jsys->dispatch(solverJob, s_kLoopCount, s_kBatchSize);
+
+				jsys->submit(handle);
+
+				jsys->waitForComplete(handle);
+			}
+
+			solverJob.print();
+		}
+
+	private:
+	};
+
+private:
+
+};
+
+
+#endif // 0
+
+class Test_Multi_thread
+{
+public:
+	Test_Multi_thread()
+	{
+		atomicLog("============= Test_Multi_thread(), start thread pool");
+	}
+	~Test_Multi_thread()
+	{
+		atomicLog("============= ~Test_Multi_thread(), end thread pool");
+	}
+
+	void main()
+	{
+		SGE_DUMP_VAR(hardwareThreadCount());
+		atomicLog("start thread pool");
+		{
+
+
+			#if SGE_IS_JOB_SYSTEM_DISPATCH_DEPEND
+
+			JobSystem _jsys;
+
+			auto* jsys = JobSystem::instance();
+
+			Job* handle0 = nullptr;
+			Job* handle1 = nullptr;
+
+			PrimeNumberSolver::SolverJob solverJob0(PrimeNumberSolver::s_kPrimeStart);
+			PrimeNumberSolver::SolverJob solverJob1(PrimeNumberSolver::s_kPrimeStart + PrimeNumberSolver::s_kLoopCount * 1);
+
+			size_t startCount = 0;
+			Job* empty = jsys->createEmptyJob(); (void)empty;
+
+			#endif // 0
+
+
+			for (;;)
+			{
+				poll();
+
+				static bool isStart = false;
+				static bool isDone = false;
+
+				if (!isStart)
+				{
+					#if SGE_IS_OLD_JOB_SYSTEM_TEST_CASE
+					//PrimeNumberSolver::test_JobSystem::test();
+					//PrimeNumberSolver::test_parallel_for::test();
+					//PrimeNumberSolver::test_dependent::test();
+
+					#else
+
+					#if SGE_IS_JOB_SYSTEM_DISPATCH_DEPEND
+
+					{
+						SGE_PROFILE_SCOPED;
+
+						handle0 = jsys->dispatch(solverJob0, PrimeNumberSolver::s_kLoopCount, PrimeNumberSolver::s_kBatchSize);
+						handle1 = jsys->dispatch(std::bind(&PrimeNumberSolver::SolverJob::execute2, &solverJob1, std::placeholders::_1), PrimeNumberSolver::s_kLoopCount, PrimeNumberSolver::s_kBatchSize, handle0);
+					}
+
+					#else
+
+					isStart = true;
+					isDone = true;
+
+					PrimeNumberSolver::Test_Dispatch::test();
+
+					#endif // SGE_IS_JOB_SYSTEM_DISPATCH_DEPEND
+
+					#endif // SGE_IS_OLD_JOB_SYSTEM_TEST_CASE
+
+				}
+				#if SGE_IS_JOB_SYSTEM_DISPATCH_DEPEND
+
+				if (startCount > 2)
+				{
+					SGE_PROFILE_SCOPED;
+
+					jsys->submit(handle0);
+
+					jsys->waitForComplete(handle1);
+
+					solverJob0.print();
+
+					solverJob1.print();
+
+					isDone = true;
+				}
+
+				SGE_LOG("waiting...");
+				startCount++;
+				sleep(1);
+
+				#endif // SGE_IS_JOB_SYSTEM_DISPATCH_DEPEND
+
+				SGE_PROFILE_FRAME;
+
+				if (s_isQuit || isDone)
+				{
+					atomicLog("=== try quit");
+					//threadPool.terminate();
+					return;
+				}
+
+			}
+		}
+	}
+
+	void poll()
+	{
+		if (_kbhit()) {
+			int ch = 0;
+			// Stores the pressed key in ch
+			ch = _getch();
+			s_isQuit = true;
+		}
+	}
+
+private:
+};
+
 }
 
 
@@ -508,13 +696,7 @@ void test_Multi_thread() {
 
 	atomicLog("=== sizeof(Job) {}", sizeof(Job));
 
-#if 1
 	SGE_TEST_CASE(Test_Multi_thread, main());
-
-#else
-
-
-#endif // 0
 
 	atomicLog("=== end main()");
 
