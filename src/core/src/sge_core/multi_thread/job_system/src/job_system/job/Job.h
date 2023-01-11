@@ -1,6 +1,7 @@
 #pragma once
 #include "../base/job_system_base.h"
 
+#include "../utility/Function.h"
 
 #pragma warning( push )
 #pragma warning( disable : 4324 )
@@ -22,15 +23,22 @@ struct JobInfo
 	T batchID		= 0;
 	T batchOffset	= 0;
 	T batchEnd		= 0;
+
+	void clear() { batchID = 0; batchOffset = 0; batchEnd = 0; }
 };
+
+//using JobFunction = Function<void(JobArgs&), 32>;
+using JobFunction = std::function<void(JobArgs&)>;
 
 class alignas(s_kCacheLine) Job //: public NonCopyable
 {
+	SGE_JOB_SYSTEM_JOB_TYPE_FRIEND_CLASS_DECLARE();
+
 public:
 	using Priority = JobPrioity;
 	using Info = JobInfo;
 
-	using  Task = Function<void(const JobArgs& args)>;
+	using  Task = JobFunction;
 	static Task s_emptyTask;
 
 	//using Task =  void(*)(void*);
@@ -48,57 +56,47 @@ private:
 #endif // 0
 #if 1
 
-	template<size_t N>
-	struct LocalBuffer
-	{
-		static constexpr size_t s_kCapacity = N - 1;
-		LocalBuffer()
-		{
-			static_assert(N <= 255); // max of u8
-		}
-		~LocalBuffer() { clear(); }
-		void* allocate(size_t n)
-		{
-			SGE_ASSERT(_offset + n <= s_kCapacity);
-			if (_offset + n > s_kCapacity)
-				return nullptr;
-			auto* ret = _data + _offset;
-			_offset += static_cast<u8>(n);
-			return ret;
-		}
-		void clear() { _offset = 0; }
-
-		u8 _data[s_kCapacity];
-		u8 _offset = 0;
-	};
-	template<>
-	struct LocalBuffer<0>
-	{
-	};
-
-
 	struct NormalData
 	{
 		NormalData()
 		:
-			_jobRemainCount(1), _priority(Priority::Cirtical), _isExecuting(false)
+			_jobRemainCount(1), _priority(Priority::Cirtical)
 		{
+			#if SGE_JOB_SYSTEM_IS_CONDITION_DEBUG
+			_resetDebugCheck();
+			#endif // _DEBUG
 		}
+
+		#if SGE_JOB_SYSTEM_IS_CONDITION_DEBUG
+		void _resetDebugCheck()
+		{
+			_isAllowAddDeps.store(true);
+			_isExecuted.store(false);
+			_isSubmitted.store(false);
+		}
+		#endif // _DEBUG
+
+		void setPriority(Priority pri)	{ _priority.store(pri); }
+		Priority priority()				{ return _priority.load(); }
+
 		Task				_task;
 		Info				_info;
-		
-		void*				_param = nullptr;
 
 		// concept of parent and DepData::runAfterThis is a little bit different.
 		// parent may run before the child but DepData::runAfterThis must run after this job
 		Job*				_parent = nullptr;		
 		Atomic<int>			_jobRemainCount = 1;
 
-		Priority			_priority;
 
-		LocalBuffer<34+1>	_localBuf;
+		#if SGE_JOB_SYSTEM_IS_CONDITION_DEBUG
+		Atomic<bool>		_isAllowAddDeps = true;
+		Atomic<bool>		_isExecuted		= false;
+		Atomic<bool>		_isSubmitted	= false;
+		#endif // _DEBUG
 
-		Atomic<bool>		_isExecuting = false;
+	private:
+		Atomic<Priority>	_priority;
+		//Priority			_priority;
 	};
 	struct DepData
 	{
@@ -170,20 +168,8 @@ public:
 
 	~Job() = default;
 	
-	void clear()
-	{
-		_storage.dep._dependencyCount.store(0);
-		_storage.dep._runAfterThis.clear();
+	void clear();
 
-		_storage._localBuf.clear();
-		_storage._jobRemainCount = 1;
-		_storage._param = nullptr;
-		_storage._parent = nullptr;
-		_storage._priority = Job::Priority(0);
-		_storage._task = nullptr;
-	}
-
-	void setParent(Job* parent);
 
 	bool isCompleted() const;
 	int jobRemainCount() const;
@@ -202,17 +188,17 @@ public:
 	Job* setName(const char* name);
 	const char* name() const;
 
-
 protected:
+	void setParent(Job* parent);
+
 	void _runAfter(Job* job);
 	void _runBefore(Job* job);
 	void* _allocate(size_t n);
 
-	void _setInfo(const Info& info);
 
 private:
-	void init(const Task& func, void* param, Job* parent = nullptr);
-	void init(const Task& func, Job* parent = nullptr);
+	void init(const Task& func, const Info& info, Job* parent = nullptr);
+	void _setInfo(const Info& info);
 
 	void setEmpty();
 

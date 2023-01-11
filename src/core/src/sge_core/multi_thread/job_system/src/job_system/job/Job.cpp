@@ -5,8 +5,31 @@ namespace sge {
 
 Job::Task Job::s_emptyTask = [](const JobArgs& args) {};
 
+void Job::clear()
+{
+	_storage.dep._dependencyCount.store(0);
+	_storage.dep._runAfterThis.clear();
+
+	_storage._task = nullptr;
+	_storage._info.clear();
+
+	_storage._jobRemainCount.store(1);
+	_storage._parent = nullptr;
+
+	_storage.setPriority(Job::Priority::Cirtical);
+
+	#if SGE_JOB_SYSTEM_IS_CONDITION_DEBUG
+	_storage._resetDebugCheck();
+	#endif // _DEBUG
+}
+
 void Job::setParent(Job* parent)		
 { 
+	#if SGE_JOB_SYSTEM_IS_CONDITION_DEBUG
+	SGE_ASSERT(!_storage._isSubmitted);
+	SGE_ASSERT(!_storage._isExecuted);
+	#endif // 0
+
 	// maybe shd set recursively
 	if (!parent)
 		return;
@@ -19,21 +42,29 @@ int  Job::jobRemainCount() const	{ return _storage._jobRemainCount.load(); }
 
 void Job::_runAfter(Job* job)
 {
-	SGE_ASSERT(!job->_storage._isExecuting);
+	#if SGE_JOB_SYSTEM_IS_CONDITION_DEBUG
+	SGE_ASSERT(job->_storage._isAllowAddDeps);
+	SGE_ASSERT(_storage._isAllowAddDeps);
+	#endif // 0
+
 	SGE_ASSERT(job != this);
 
 	this->_storage.dep._dependencyCount.fetch_add(1);
 	job->_storage.dep._runAfterThis.emplace_back(this);	// _runAfterThis is correct, not worng
 
-#if SGE_JOB_SYSTEM_DEBUG
+	#if SGE_JOB_SYSTEM_DEBUG
 	DependencyManager::instance()->XRunBeforeY(job, this);
 	DependencyManager::instance()->XRunAfterY(this, job);
-#endif // SGE_JOB_SYSTEM_DEBUG
+	#endif // SGE_JOB_SYSTEM_DEBUG
 }
 
 void Job::_runBefore(Job* job)
 {
-	SGE_ASSERT(!job->_storage._isExecuting);
+	#if SGE_JOB_SYSTEM_IS_CONDITION_DEBUG
+	SGE_ASSERT(job->_storage._isAllowAddDeps);
+	SGE_ASSERT(_storage._isAllowAddDeps);
+	#endif // 0
+
 	SGE_ASSERT(job != this);
 
 	job->_storage.dep._dependencyCount.fetch_add(1);
@@ -47,7 +78,7 @@ void Job::_runBefore(Job* job)
 
 void* Job::_allocate(size_t n)
 {
-	return this->_storage._localBuf.allocate(n);
+	return nullptr /*this->_storage._localBuf.allocate(n)*/;
 }
 
 void Job::_setInfo(const Info& info)
@@ -64,18 +95,15 @@ void Job::print() const
 	atomicLog("job -> dependencyCount: {}", dependencyCount());
 }
 
-void Job::init(const Task& func, void* param, Job* parent)
+void Job::init(const Task& func, const Info& info, Job* parent)
 {
-	_storage._jobRemainCount = 1;
-	_storage._task = func;
-	_storage._param = param;
-	setParent(parent);
-}
+	clear();
 
-void Job::init(const Task& func, Job* parent)
-{
-	_storage._jobRemainCount = 1;
+	_storage._jobRemainCount.store(1);
 	_storage._task = func;
+
+	_setInfo(info);
+
 	setParent(parent);
 }
 
@@ -98,7 +126,7 @@ Job* Job::setName(const char* name)
 
 void Job::setEmpty()
 {
-	init(s_emptyTask, nullptr, nullptr);
+	init(s_emptyTask, JobInfo(), nullptr);
 }
 
 const char* Job::name() const

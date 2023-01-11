@@ -69,9 +69,18 @@ void JobSystem::waitForComplete(JobHandle job)
 
 void JobSystem::submit(JobHandle job)
 {
-#if SGE_JOB_SYSTEM_ENABLE_SINGLE_THREAD_DEBUG
+	#if SGE_JOB_SYSTEM_IS_CONDITION_DEBUG
+	SGE_ASSERT(!job->_storage._isSubmitted);
+	SGE_ASSERT(!job->_storage._isExecuted);
+
+	job->_storage._isSubmitted.store(true);
+	job->_storage._isAllowAddDeps.store(false);
+	#endif // 0
+
+	#if SGE_JOB_SYSTEM_ENABLE_SINGLE_THREAD_DEBUG
 	_execute(job);
-#else
+	#else
+
 	auto& threadPool = instance()->_threadPool;
 	threadPool.submit(job);
 #endif
@@ -86,9 +95,10 @@ void JobSystem::clearJobs()
 	storage->clearJobs();
 }
 
-JobHandle JobSystem::createJob(const Task& task, void* param)
+#if 0
+JobHandle JobSystem::createJob(const Task& task)
 {
-	auto* job = createSubJob(nullptr, task, param);
+	auto* job = createSubJob(nullptr, task);
 
 	#if SGE_JOB_SYSTEM_DEBUG
 	DependencyManager::addVertex(job);
@@ -97,12 +107,14 @@ JobHandle JobSystem::createJob(const Task& task, void* param)
 	return job;
 }
 
-JobHandle JobSystem::createSubJob(JobHandle parent, const Task& task, void* param)
+JobHandle JobSystem::createSubJob(JobHandle parent, const Task& task)
 {
 	auto* job = JobSystem::allocateJob();
-	job->init(task, param, parent);
+	job->init(task, parent);
 	return job;
 }
+
+#endif // 0
 
 JobHandle JobSystem::createEmptyJob()
 {
@@ -131,110 +143,6 @@ bool JobSystem::_tryGetJob(Job*& job)
 	return _threadPool.tryGetJob(job);
 }
 
-void JobSystem::_complete(Job* job)
-{
-	auto& jobRemainCount	= job->_storage._jobRemainCount;
-	auto& parent			= job->_storage._parent;
-	//auto& depsOnThis		= job->_storage.dep._depsOnThis;
-
-	//atomicLog("=== task complete");
-	jobRemainCount--;
-
-#if SGE_JOB_SYSTEM_DEBUG
-	DependencyManager::jobFinish(job);
-#endif // 0
-
-	if (jobRemainCount.load() == 0)
-	{
-		if (parent)
-		{
-			_complete(parent);
-
-#if SGE_JOB_SYSTEM_DEBUG
-			DependencyManager::jobFinish(parent->_storage._parent);
-#endif // 0
-		}
-
-		job->_storage.dep.runAfterThis_for_each_ifNoDeps(JobSystem::submit);
-	}
-}
-
-void JobSystem::_execute(Job* job)
-{
-#if SGE_JOB_SYSTEM_DEBUG
-	DependencyManager::jobExecute(job);
-#endif // 0
-
-	auto& task  = job->_storage._task;
-	auto& info	= job->info();
-
-	job->_storage._isExecuting.store(true);
-
-	JobArgs args;
-	args.batchID = info.batchID;
-
-	for (u32 i = info.batchOffset; i < info.batchEnd; ++i)
-	{
-		args.loopIndex  = i;
-		args.batchIndex = i - info.batchOffset;
-		task(args);
-	}
-
-	_complete(job);
-}
-
-JobHandle JobSystem::dispatch(const Task& task, u32 loopCount, u32 batchSize, JobHandle dependOn)
-{
-	return _dispatch(task, loopCount, batchSize, dependOn);
-}
-
-JobHandle JobSystem::_dispatch(const Task& task, u32 loopCount, u32 batchSize, JobHandle dependOn)
-{
-	if (loopCount == 0 || batchSize == 0)
-		return nullptr;
-
-	const u32 nBatchGroup	= JobSystem::dispatchBatchGroup(loopCount, batchSize);
-
-	Job* spwanJob 	= JobSystem::allocateJob();
-	{
-		JobInfo info;
-		info.batchEnd = 1;
-		spwanJob->_setInfo(info);
-	}
-
-	auto spwanTask = [spwanJob, task, loopCount, batchSize, nBatchGroup](const JobArgs& args)
-	{
-		JobInfo info;
-
-		for (u32 iBatchGroup = 0; iBatchGroup < nBatchGroup; iBatchGroup++)
-		{
-			Job* job = JobSystem::allocateJob();
-			job->init(task, spwanJob);
-
-			info.batchID	 = iBatchGroup;
-			info.batchOffset = iBatchGroup * batchSize;
-			info.batchEnd	 = Math::min(info.batchOffset + batchSize, loopCount);
-
-			job->_setInfo(info);
-
-			submit(job);
-		}
-	};
-	spwanJob->init(spwanTask);
-
-	if (dependOn)
-		spwanJob->runAfter(dependOn);
-
-	return spwanJob;
-}
-
-
-u32 JobSystem::dispatchBatchGroup(u32 loopCount, u32 batchGroup)
-{
-	// overestimate
-	return (loopCount + batchGroup - 1) / batchGroup;
-}
-
 JobAllocator& JobSystem::_defaultJobAllocator()
 {
 	auto* jsys = JobSystem::instance();
@@ -255,6 +163,62 @@ void JobSystem::_checkError()
 	SGE_ASSERT(this->_storages[threadLocalId()]);
 }
 
+void JobSystem::_complete(Job* job)
+{
+	auto& jobRemainCount	= job->_storage._jobRemainCount;
+	auto& parent			= job->_storage._parent;
+	//auto& depsOnThis		= job->_storage.dep._depsOnThis;
 
+	//atomicLog("=== task complete");
+	jobRemainCount--;
+
+	#if SGE_JOB_SYSTEM_DEBUG
+	DependencyManager::jobFinish(job);
+	#endif // 0
+
+	if (jobRemainCount.load() == 0)
+	{
+		if (parent)
+		{
+			_complete(parent);
+
+			#if SGE_JOB_SYSTEM_DEBUG
+			DependencyManager::jobFinish(parent->_storage._parent);
+			#endif // 0
+		}
+
+		job->_storage.dep.runAfterThis_for_each_ifNoDeps(JobSystem::submit);
+	}
+}
+
+void JobSystem::_execute(Job* job)
+{
+	#if SGE_JOB_SYSTEM_DEBUG
+	DependencyManager::jobExecute(job);
+	#endif // 0
+
+	#if SGE_JOB_SYSTEM_IS_CONDITION_DEBUG
+	SGE_ASSERT(job->_storage._isSubmitted);
+	SGE_ASSERT(!job->_storage._isExecuted);
+
+	job->_storage._isAllowAddDeps.store(false);
+	job->_storage._isExecuted.store(true);
+	#endif // 0
+
+	auto& task  = job->_storage._task;
+	auto& info	= job->info();
+
+	JobArgs args;
+	args.batchID = info.batchID;
+
+	for (u32 i = info.batchOffset; i < info.batchEnd; ++i)
+	{
+		args.loopIndex  = i;
+		args.batchIndex = i - info.batchOffset;
+		task(args);
+	}
+
+	_complete(job);
+}
 
 }

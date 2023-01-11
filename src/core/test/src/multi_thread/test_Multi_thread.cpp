@@ -455,7 +455,7 @@ public:
 	static constexpr size_t	s_kPrimeStart	= 1000000000LL;
 	//static constexpr size_t	s_kPrimeStart	= 2;
 
-	static constexpr size_t	s_kLoopCount    = 256;
+	static constexpr size_t	s_kLoopCount    = 128;
 
 private:
 	static bool s_isPrimeNumber(i64 v)
@@ -470,10 +470,11 @@ private:
 
 public:
 	
-	class SolverJob
+	template<class... ARGS>
+	class SolverJobT : public JobParFor_Base
 	{
 	public:
-		SolverJob(size_t primeStart_)
+		SolverJobT(size_t primeStart_)
 		{
 			auto primeStart = primeStart_;
 
@@ -487,17 +488,6 @@ public:
 		}
 
 		void execute(const JobArgs& args)
-		{
-			SGE_PROFILE_SCOPED;
-
-			auto i = args.loopIndex;
-			//SGE_LOG("=== i: {}", i);
-
-			bool isPrime = s_isPrimeNumber(_numbers[i]);
-			_result[i] = isPrime;
-		}
-
-		void execute2(const JobArgs& args)
 		{
 			SGE_PROFILE_SCOPED;
 
@@ -528,23 +518,30 @@ public:
 		Vector<int>   _result;
 	};
 
+	using SolverJob = SolverJobT<void>;
+	using SolverJo2 = SolverJobT<void, void>;
+
 	class Test_Dispatch
 	{
 	public:
 
-		static void test()
+		void test()
 		{
 			JobSystem _jsys;
 
-			PrimeNumberSolver::SolverJob solverJob(PrimeNumberSolver::s_kPrimeStart);
 			{
 				SGE_PROFILE_SCOPED;
 
+
 				auto* jsys = JobSystem::instance();
 				//auto handle = jsys->dispatch(std::bind(&SolverJob::execute, &solverJob, std::placeholders::_1), s_kLoopCount, s_kBatchSize);
-				auto handle = jsys->dispatch(solverJob, s_kLoopCount, s_kBatchSize);
 
-				jsys->submit(handle);
+				//auto handle2 = jsys->dispatch2(solverJob, s_kLoopCount, s_kBatchSize); (void)handle2;
+
+
+				auto handle = solverJob.dispatch(solverJob, s_kLoopCount, s_kBatchSize);
+
+				//jsys->submit(handle);
 
 				jsys->waitForComplete(handle);
 			}
@@ -553,6 +550,7 @@ public:
 		}
 
 	private:
+		PrimeNumberSolver::SolverJob solverJob{PrimeNumberSolver::s_kPrimeStart};
 	};
 
 private:
@@ -591,7 +589,7 @@ public:
 			Job* handle1 = nullptr;
 
 			PrimeNumberSolver::SolverJob solverJob0(PrimeNumberSolver::s_kPrimeStart);
-			PrimeNumberSolver::SolverJob solverJob1(PrimeNumberSolver::s_kPrimeStart + PrimeNumberSolver::s_kLoopCount * 1);
+			PrimeNumberSolver::SolverJo2 solverJob1(PrimeNumberSolver::s_kPrimeStart + PrimeNumberSolver::s_kLoopCount * 1);
 
 			size_t startCount = 0;
 			Job* empty = jsys->createEmptyJob(); (void)empty;
@@ -620,8 +618,8 @@ public:
 					{
 						SGE_PROFILE_SCOPED;
 
-						handle0 = jsys->dispatch(solverJob0, PrimeNumberSolver::s_kLoopCount, PrimeNumberSolver::s_kBatchSize);
-						handle1 = jsys->dispatch(std::bind(&PrimeNumberSolver::SolverJob::execute2, &solverJob1, std::placeholders::_1), PrimeNumberSolver::s_kLoopCount, PrimeNumberSolver::s_kBatchSize, handle0);
+						handle0 = solverJob0.delayDispatch(solverJob0, PrimeNumberSolver::s_kLoopCount, PrimeNumberSolver::s_kBatchSize);
+						handle1 = solverJob1.delayDispatch(solverJob1, PrimeNumberSolver::s_kLoopCount, PrimeNumberSolver::s_kBatchSize, handle0);
 					}
 
 					#else
@@ -629,7 +627,7 @@ public:
 					isStart = true;
 					isDone = true;
 
-					PrimeNumberSolver::Test_Dispatch::test();
+					SGE_TEST_CASE(PrimeNumberSolver::Test_Dispatch, test());
 
 					#endif // SGE_IS_JOB_SYSTEM_DISPATCH_DEPEND
 
