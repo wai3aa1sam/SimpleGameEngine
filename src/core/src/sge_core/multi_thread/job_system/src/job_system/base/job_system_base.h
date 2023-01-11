@@ -80,10 +80,10 @@ SGE_ENUM_CLASS(ThreadType, u8)
 SGE_ENUM_CLASS(JobPrioity, u8)
 
 #define SGE_JOB_SYSTEM_JOB_TYPE_FRIEND_CLASS_DECLARE() \
-	friend class Job_Base;										\
-	friend class JobFor_Base;									\
-	friend class JobParFor_Base;								\
-	template<class T, class ENABLE> friend struct JobDispatcher \
+	template<class T> friend class Job_Base;									\
+	template<class T> friend class JobFor_Base;									\
+	template<class T> friend class JobParFor_Base;								\
+	template<class T, class ENABLE> friend struct JobDispatcher					\
 //---
 
 template<class T> using PrioityQueue = PrioityQueues<T, enumInt(JobPrioity::Count)>;
@@ -99,9 +99,12 @@ class Job;
 using JobHandle = Job*;
 
 #if 0
-#pragma mark --- type_trait
+#pragma mark --- type_trait-Impl
 #endif // 0
 #if 1
+
+template<class T1, class T2> using					IsSameT = std::is_same<T1, T2>;
+template<class T1, class T2> inline constexpr bool	IsSame	= IsSameT<T1, T2>::value;
 
 template<bool COND> using EnableIfT = typename std::enable_if<COND>;
 template<bool COND> using EnableIf	= typename EnableIfT<COND>::type;

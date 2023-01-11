@@ -138,7 +138,7 @@ private:
 
 		int	decrDependencyCount()	{ return --_dependencyCount; }
 
-		//bool couldRun() const { return _dependencyCount == 0; }
+		bool couldRun() const { return _dependencyCount.load() == 0; }
 		/*
 		Consider: atomic var called counter; a function logic. if counter == 0 then can perform xxx. suppose the xxx only could run once.
 		situation: thread A decrement counter then context switch to thread B and thread B decrement counter.

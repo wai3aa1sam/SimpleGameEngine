@@ -449,13 +449,12 @@ public:
 class PrimeNumberSolver
 {
 public:
-
 	static constexpr size_t s_kBatchSize	= 4;
 
 	static constexpr size_t	s_kPrimeStart	= 1000000000LL;
 	//static constexpr size_t	s_kPrimeStart	= 2;
 
-	static constexpr size_t	s_kLoopCount    = 128;
+	static constexpr size_t	s_kLoopCount    = 40;
 
 private:
 	static bool s_isPrimeNumber(i64 v)
@@ -471,7 +470,7 @@ private:
 public:
 	
 	template<class... ARGS>
-	class SolverJobT : public JobParFor_Base
+	class SolverJobT
 	{
 	public:
 		SolverJobT(size_t primeStart_)
@@ -487,12 +486,33 @@ public:
 			}
 		}
 
+		void execute()
+		{
+			SGE_PROFILE_SCOPED;
+
+			//SGE_LOG("=== i: {}", i);
+
+			for (size_t i = 0; i < s_kLoopCount; i++)
+			{
+				bool isPrime = s_isPrimeNumber(_numbers[i]);
+				_result[i] = isPrime;
+			}
+		}
+
 		void execute(const JobArgs& args)
 		{
 			SGE_PROFILE_SCOPED;
 
 			auto i = args.loopIndex;
 			//SGE_LOG("=== i: {}", i);
+
+			bool isPrime = s_isPrimeNumber(_numbers[i]);
+			_result[i] = isPrime;
+		}
+
+		void execute_submit()
+		{
+			SGE_PROFILE_SCOPED;
 
 			bool isPrime = s_isPrimeNumber(_numbers[i]);
 			_result[i] = isPrime;
@@ -518,8 +538,47 @@ public:
 		Vector<int>   _result;
 	};
 
-	using SolverJob = SolverJobT<void>;
-	using SolverJo2 = SolverJobT<void, void>;
+	template<class... ARGS>
+	class SolverJobT_testParFor : public JobParFor_Base<SolverJobT_testParFor<ARGS...>>, public SolverJobT<ARGS...>
+	{
+		using Base = SolverJobT<ARGS...>;
+	public:
+		SolverJobT_testParFor(size_t primeStart_)
+			: Base(primeStart_)
+		{
+		}
+	};
+
+	template<class... ARGS>
+	class SolverJobT_testFor : public JobFor_Base<SolverJobT_testFor<ARGS...>>, public SolverJobT<ARGS...>
+	{
+		using Base = SolverJobT<ARGS...>;
+	public:
+		SolverJobT_testFor(size_t primeStart_)
+			: Base(primeStart_)
+		{
+		}
+	};
+
+	template<class... ARGS>
+	class SolverJobT_test : public Job_Base<SolverJobT_test<ARGS...>>, public SolverJobT<ARGS...>
+	{
+		using Base = SolverJobT<ARGS...>;
+	public:
+		SolverJobT_test(size_t primeStart_)
+			: Base(primeStart_)
+		{
+		}
+	};
+
+	using SolverJob_ParFor	= SolverJobT_testParFor<void>;
+	using SolverJob_ParFor2 = SolverJobT_testParFor<void, void>;
+
+	using SolverJob_For		= SolverJobT_testFor<void>;
+	using SolverJob_For2	= SolverJobT_testFor<void, void>;
+
+	using SolverJob			= SolverJobT_test<void>;
+	using SolverJob2		= SolverJobT_test<void, void>;
 
 	class Test_Dispatch
 	{
@@ -534,29 +593,28 @@ public:
 
 
 				auto* jsys = JobSystem::instance();
-				//auto handle = jsys->dispatch(std::bind(&SolverJob::execute, &solverJob, std::placeholders::_1), s_kLoopCount, s_kBatchSize);
 
-				//auto handle2 = jsys->dispatch2(solverJob, s_kLoopCount, s_kBatchSize); (void)handle2;
-
-
-				auto handle = solverJob.dispatch(solverJob, s_kLoopCount, s_kBatchSize);
-
-				//jsys->submit(handle);
+				auto handle = solverJob_ParFor.dispatch(s_kLoopCount, s_kBatchSize);
+				//auto handle = solverJob_For.dispatch(s_kLoopCount);
+				//auto handle = solverJob.dispatch();
 
 				jsys->waitForComplete(handle);
 			}
 
+			solverJob_ParFor.print();
+			solverJob_For.print();
 			solverJob.print();
 		}
 
 	private:
-		PrimeNumberSolver::SolverJob solverJob{PrimeNumberSolver::s_kPrimeStart};
+		PrimeNumberSolver::SolverJob_ParFor	solverJob_ParFor{PrimeNumberSolver::s_kPrimeStart};
+		PrimeNumberSolver::SolverJob_For	solverJob_For	{PrimeNumberSolver::s_kPrimeStart};
+		PrimeNumberSolver::SolverJob		solverJob		{PrimeNumberSolver::s_kPrimeStart};
 	};
 
 private:
 
 };
-
 
 #endif // 0
 
@@ -577,8 +635,6 @@ public:
 		SGE_DUMP_VAR(hardwareThreadCount());
 		atomicLog("start thread pool");
 		{
-
-
 			#if SGE_IS_JOB_SYSTEM_DISPATCH_DEPEND
 
 			JobSystem _jsys;
@@ -588,14 +644,19 @@ public:
 			Job* handle0 = nullptr;
 			Job* handle1 = nullptr;
 
-			PrimeNumberSolver::SolverJob solverJob0(PrimeNumberSolver::s_kPrimeStart);
-			PrimeNumberSolver::SolverJo2 solverJob1(PrimeNumberSolver::s_kPrimeStart + PrimeNumberSolver::s_kLoopCount * 1);
+			PrimeNumberSolver::SolverJob_ParFor		solverJob_ParFor0(PrimeNumberSolver::s_kPrimeStart);
+			PrimeNumberSolver::SolverJob_ParFor2	solverJob_ParFor1(PrimeNumberSolver::s_kPrimeStart + PrimeNumberSolver::s_kLoopCount * 1);
+
+			PrimeNumberSolver::SolverJob_For		solverJob_For0(PrimeNumberSolver::s_kPrimeStart);
+			PrimeNumberSolver::SolverJob_For2		solverJob_For1(PrimeNumberSolver::s_kPrimeStart + PrimeNumberSolver::s_kLoopCount * 1);
+
+			PrimeNumberSolver::SolverJob			solverJob0(PrimeNumberSolver::s_kPrimeStart);
+			PrimeNumberSolver::SolverJob2			solverJob1(PrimeNumberSolver::s_kPrimeStart + PrimeNumberSolver::s_kLoopCount * 1);
 
 			size_t startCount = 0;
 			Job* empty = jsys->createEmptyJob(); (void)empty;
 
 			#endif // 0
-
 
 			for (;;)
 			{
@@ -618,8 +679,14 @@ public:
 					{
 						SGE_PROFILE_SCOPED;
 
-						handle0 = solverJob0.delayDispatch(solverJob0, PrimeNumberSolver::s_kLoopCount, PrimeNumberSolver::s_kBatchSize);
-						handle1 = solverJob1.delayDispatch(solverJob1, PrimeNumberSolver::s_kLoopCount, PrimeNumberSolver::s_kBatchSize, handle0);
+						handle0 = solverJob_ParFor0.delayDispatch(PrimeNumberSolver::s_kLoopCount, PrimeNumberSolver::s_kBatchSize);
+						handle1 = solverJob_ParFor1.delayDispatch(PrimeNumberSolver::s_kLoopCount, PrimeNumberSolver::s_kBatchSize, handle0, handle0, handle0);
+
+						handle0 = solverJob_For0.delayDispatch(PrimeNumberSolver::s_kLoopCount);
+						handle1 = solverJob_For1.delayDispatch(PrimeNumberSolver::s_kLoopCount, handle0, handle0, handle0);
+
+						handle0 = solverJob0.delayDispatch();
+						handle1 = solverJob1.delayDispatch(handle0, handle0, handle0);
 					}
 
 					#else
@@ -642,11 +709,19 @@ public:
 
 					jsys->submit(handle0);
 
+					sleep_ms(500);
+
 					jsys->waitForComplete(handle1);
 
-					solverJob0.print();
+					solverJob_ParFor0.print();
+					solverJob_ParFor1.print();
 
+					solverJob_For0.print();
+					solverJob_For1.print();
+
+					solverJob0.print();
 					solverJob1.print();
+
 
 					isDone = true;
 				}
@@ -684,7 +759,6 @@ private:
 };
 
 }
-
 
 void test_Multi_thread() {
 	using namespace sge;

@@ -4,85 +4,42 @@
 
 namespace sge{
 
-class Job_Base;			/* void execute(); */
-class JobFor_Base;		/* void execute(const JobArgs& args); */
-class JobParFor_Base;	/* void execute(const JobArgs& args); */ 
+template<class T> class Job_Base;			/* void execute(); */
+template<class T> class JobFor_Base;		/* void execute(const JobArgs& args); */
+template<class T> class JobParFor_Base;		/* void execute(const JobArgs& args); */ 
 
-class Job_Base			/*: public NonCopyable */
-{ 
-	/* void execute(); */					
-
-public:
-	template<class T>
-	static JobHandle dispatch(T& obj)
+template<class T, class ENABLE = void>
+struct JobDispatcher
+{
+	JobDispatcher()
 	{
-		return _dispatch<false>(obj);
+		static_assert(IsBaseOf<Job_Base, T>,		"T is not base of Job_Base");		// TYPE 0
+		static_assert(IsBaseOf<JobFor_Base, T>,		"T is not base of JobFor_Base");	// TYPE 1
+		static_assert(IsBaseOf<JobParFor_Base, T>,	"T is not base of JobParFor_Base");	// TYPE 2
 	}
 
-	template<class T, class... DEPEND_ON>
-	static JobHandle delayDispatch(T& obj, DEPEND_ON&&... dependOn)
+	template<size_t TYPE, bool IS_DELAY, class T, class... DEPEND_ON>
+	static JobHandle _dispatch(T& obj, u32 loopCount, JobHandle dependOn = nullptr, DEPEND_ON&&... moreDeps)
 	{
-		return _dispatch<true>(obj, std::forward<DEPEND_ON>(dependOn)...);
-	}
+		static_assert(IsBaseOf<Job_Base<T>, T> || IsBaseOf<JobFor_Base<T>, T>, "T is not base of Job_Base or JobFor_Base");
 
-private:
-	template<bool IS_DELAY, class T, class... DEPEND_ON>
-	static JobHandle _dispatch(T& obj, DEPEND_ON&&... dependOn)
-	{
-		auto* pObj = &obj;
-		JobFunction task = [pObj](const JobArgs& args) { return pObj->execute(); };
-
-		JobInfo info;
-
-		Job* job = JobSystem::allocateJob();
-		{
-			info.batchID	 = 0;
-			info.batchOffset = 0 * 0;
-			info.batchEnd	 = 1;
-			job->init(task, info, nullptr);
-		}
-		
-		if constexpr (!IS_DELAY)
-		{
-			JobSystem::submit(job);
-		}
-
-		if constexpr (sizeof...(T) > 0)
-		{
-			(job->runAfter(std::forward<DEPEND_ON>(dependOn)), ...);
-		}
-
-		return job;
-	}
-
-};
-
-class JobFor_Base		/*: public NonCopyable */
-{ 
-	/* void execute(const JobArgs& args); */ 
-
-public:
-	template<class T>
-	static JobHandle dispatch(T& obj, u32 loopCount)
-	{
-		return _dispatch<false>(obj, loopCount);
-	}
-
-	template<class T, class... DEPEND_ON>
-	static JobHandle delayDispatch(T& obj, u32 loopCount, DEPEND_ON&&... dependOn)
-	{
-		return _dispatch<true>(obj, loopCount, std::forward<DEPEND_ON>(dependOn)...);
-	}
-
-private:
-	template<bool IS_DELAY, class T, class... DEPEND_ON>
-	static JobHandle _dispatch(T& obj, u32 loopCount, DEPEND_ON&&... dependOn)
-	{
 		if (loopCount == 0)
 			return nullptr;
 
-		auto* pObj = &obj;
-		JobFunction task = [pObj](const JobArgs& args) { return pObj->execute(args); };
+		T* pObj = &obj;
+
+		JobFunction task;
+		if constexpr (TYPE == Job_Base<T>::s_kType)
+		{
+			SGE_ASSERT(loopCount == 1);
+			static_check<Job_Base<T>>();
+			task = [pObj](const JobArgs& args) { return pObj->execute(); };
+		}
+		else if constexpr (TYPE == JobFor_Base<T>::s_kType)
+		{
+			static_check<JobFor_Base<T>>();
+			task = [pObj](const JobArgs& args) { return pObj->execute(args); };
+		}
 
 		Job* job = JobSystem::allocateJob();
 		{
@@ -98,25 +55,136 @@ private:
 		{
 			JobSystem::submit(job);
 		}
-
-		if constexpr (sizeof...(T) > 0)
+		else
 		{
-			(job->runAfter(std::forward<DEPEND_ON>(dependOn)), ...);
+			if (dependOn)
+			{
+				job->runAfter(dependOn);
+			}
+			(job->runAfter(std::forward<DEPEND_ON>(moreDeps)), ...);
 		}
 
 		return job;
 	}
+
+	template<class K>
+	static void static_check()
+	{
+		//TypeDisplayer<BASE> a;
+		if		constexpr (IsSame<Job_Base<T>,		 K>)	{ static_assert(IsBaseOf<Job_Base<T>,		T>,	"T is not base of Job_Base"); }
+		else if constexpr (IsSame<JobFor_Base<T>,	 K>)	{ static_assert(IsBaseOf<JobFor_Base<T>,	T>,	"T is not base of JobFor_Base"); }
+		else if constexpr (IsSame<JobParFor_Base<T>, K>)	{ static_assert(IsBaseOf<JobParFor_Base<T>,	T>,	"T is not base of JobParFor_Base"); }
+		else
+		{
+			static_assert(false,	"T is not base of Job_Base or JobFor_Base or JobParFor_Base");
+		}
+	}
 };
 
-class JobParFor_Base	/*: public NonCopyable */
+template<class T>
+class Job_Base			/*: public NonCopyable */
 { 
-	/* void execute(const JobArgs& args); */ 
+private:
+	template<class T, class ENABLE> friend struct JobDispatcher;
+	static constexpr size_t s_kType = 0;
+	static constexpr const char* s_checkTypeMsg = "T is not base of Job_Base";
+	using This = Job_Base<T>;
 
 public:
+	/* void execute(); */ 
 
+	JobHandle dispatch()
+	{
+		return dispatch(*static_cast<T*>(this));
+	}
+
+	template<class... DEPEND_ON>
+	JobHandle delayDispatch(JobHandle dependOn = nullptr, DEPEND_ON&&... moreDeps)
+	{
+		return delayDispatch(*static_cast<T*>(this), dependOn, std::forward<DEPEND_ON>(moreDeps)...);
+	}
+
+public:
+	template<class T>
+	static JobHandle dispatch(T& obj)
+	{
+		return JobDispatcher<T>::_dispatch<s_kType, false>(obj, 1, nullptr);
+	}
+	//struct JsonIO <SE, T, std::enable_if_t<std::is_enum_v<T>> > {
+
+	// may conflict with delayDispatch if user call delayDispatch(Job*, Job*, Job*);
+	template<class T, class ENABLE = EnableIf<!IsSame<T, JobHandle>>, class... DEPEND_ON>
+	static JobHandle delayDispatch(T& obj, JobHandle dependOn = nullptr, DEPEND_ON&&... moreDeps)
+	{
+		return JobDispatcher<T>::_dispatch<s_kType, true>(obj, 1, dependOn, std::forward<DEPEND_ON>(moreDeps)...);
+	}
+};
+
+template<class T>
+class JobFor_Base		/*: public NonCopyable */
+{ 
+private:
+	template<class T, class ENABLE> friend struct JobDispatcher;
+	static constexpr size_t s_kType = 1;
+	static constexpr const char* s_checkTypeMsg = "T is not base of JobFor_Base";
+	using This = JobFor_Base<T>;
+
+public:
+	/* void execute(const JobArgs& args); */ 
+
+	JobHandle dispatch(u32 loopCount)
+	{
+		return dispatch(*static_cast<T*>(this), loopCount);
+	}
+
+	template<class... DEPEND_ON>
+	JobHandle delayDispatch(u32 loopCount, JobHandle dependOn = nullptr, DEPEND_ON&&... moreDeps)
+	{
+		return delayDispatch(*static_cast<T*>(this), loopCount, dependOn, std::forward<DEPEND_ON>(moreDeps)...);
+	}
+
+public:
+	template<class T>
+	static JobHandle dispatch(T& obj, u32 loopCount)
+	{
+		return JobDispatcher<T>::_dispatch<s_kType, false>(obj, loopCount, nullptr);
+	}
+
+	template<class T, class... DEPEND_ON>
+	static JobHandle delayDispatch(T& obj, u32 loopCount, JobHandle dependOn = nullptr, DEPEND_ON&&... moreDeps)
+	{
+		return JobDispatcher<T>::_dispatch<s_kType, true>(obj, loopCount, dependOn, std::forward<DEPEND_ON>(moreDeps)...);
+	}
+};
+
+template<class T>
+class JobParFor_Base	/*: public NonCopyable */
+{ 
+private:
+	template<class T, class ENABLE> friend struct JobDispatcher;
+	static constexpr size_t s_kType = 2;
+	static constexpr const char* s_checkTypeMsg = "T is not base of JobParFor_Base";
+	using This = JobParFor_Base<T>;
+
+public:
+	/* void execute(const JobArgs& args); */ 
+
+	JobHandle dispatch(u32 loopCount, u32 batchSize)
+	{
+		return dispatch(*static_cast<T*>(this), loopCount, batchSize);
+	}
+
+	template<class... DEPEND_ON>
+	JobHandle delayDispatch(u32 loopCount, u32 batchSize, DEPEND_ON&&... dependOn)
+	{
+		return delayDispatch(*static_cast<T*>(this), loopCount, batchSize, std::forward<DEPEND_ON>(dependOn)...);
+	}
+
+public:
 	template<class T>
 	static JobHandle dispatch(T& obj, u32 loopCount, u32 batchSize)
 	{
+		JobDispatcher<T>::static_check<This>();
 		if (loopCount == 0 || batchSize == 0)
 			return nullptr;
 
@@ -150,10 +218,12 @@ public:
 	template<class T,class... DEPEND_ON>
 	static JobHandle delayDispatch(T& obj, u32 loopCount, u32 batchSize, DEPEND_ON&&... dependOn)
 	{
+		JobDispatcher<T>::static_check<This>();
 		if (loopCount == 0 || batchSize == 0)
 			return nullptr;
 
-		T* pObj = this;
+		//T* pObj = static_cast<T*>(this);
+		T* pObj = &obj;
 		Job* spwanJob 	= JobSystem::allocateJob();
 		
 		auto spwanTask = [spwanJob, pObj, loopCount, batchSize](const JobArgs& args)
@@ -188,192 +258,5 @@ public:
 		return spwanJob;
 	}
 };
-
-template<class T, class ENABLE = void>
-struct JobDispatcher
-{
-	JobDispatcher()
-	{
-		static_assert(IsBaseOf<Job_Base, T>,		"T is not base of Job_Base");
-		static_assert(IsBaseOf<JobFor_Base, T>,		"T is not base of JobFor_Base");
-		static_assert(IsBaseOf<JobParFor_Base, T>,	"T is not base of JobParFor_Base");
-	}
-};
-
-#if 0
-
-template<class T>
-struct JobDispatcher<T, EnableIf<IsBaseOf<Job_Base, T> > >
-{
-	static JobHandle dispatch(T& obj)
-	{
-		return _dispatch<false>(obj);
-	}
-
-	template<class... DEPEND_ON>
-	static JobHandle delayDispatch(T& obj, DEPEND_ON&&... dependOn)
-	{
-		return _dispatch<true>(obj, std::forward<DEPEND_ON>(dependOn)...);
-	}
-
-private:
-	template<bool IS_DELAY, class... DEPEND_ON>
-	static JobHandle _dispatch(T& obj, DEPEND_ON&&... dependOn)
-	{
-		auto* pObj = &obj;
-		JobFunction task = [pObj](const JobArgs& args) { return pObj->execute(); };
-
-		JobInfo info;
-
-		Job* job = JobSystem::allocateJob();
-		job->init(task, nullptr);
-
-		info.batchID	 = 0;
-		info.batchOffset = 0 * 0;
-		info.batchEnd	 = 1;
-
-		job->_setInfo(info);
-
-		if constexpr (!IS_DELAY)
-		{
-			JobSystem::submit(job);
-		}
-
-		if constexpr (sizeof...(T) > 0)
-		{
-			(job->runAfter(std::forward<DEPEND_ON>(dependOn)), ...);
-		}
-
-		return job;
-	}
-};
-
-template<class T>
-struct JobDispatcher<T, EnableIf<IsBaseOf<JobFor_Base, T> > >
-{
-	static JobHandle dispatch(T& obj, u32 loopCount)
-	{
-		return _dispatch<false>(obj, loopCount);
-	}
-
-	template<class... DEPEND_ON>
-	static JobHandle delayDispatch(T& obj, u32 loopCount, DEPEND_ON&&... dependOn)
-	{
-		return _dispatch<true>(obj, loopCount, std::forward<DEPEND_ON>(dependOn)...);
-	}
-
-private:
-	template<bool IS_DELAY, class... DEPEND_ON>
-	static JobHandle _dispatch(T& obj, u32 loopCount, DEPEND_ON&&... dependOn)
-	{
-		if (loopCount == 0)
-			return nullptr;
-
-		auto* pObj = &obj;
-		JobFunction task = [pObj](const JobArgs& args) { return pObj->execute(args); };
-
-		JobInfo info;
-
-		Job* job = JobSystem::allocateJob();
-		job->init(task, nullptr);
-
-		info.batchID	 = 0;
-		info.batchOffset = 0 * 0;
-		info.batchEnd	 = loopCount;
-
-		job->_setInfo(info);
-
-		if constexpr (!IS_DELAY)
-		{
-			JobSystem::submit(job);
-		}
-
-		if constexpr (sizeof...(T) > 0)
-		{
-			(job->runAfter(std::forward<DEPEND_ON>(dependOn)), ...);
-		}
-
-		return job;
-	}
-};
-
-template<class T>
-struct JobDispatcher<T, EnableIf<IsBaseOf<JobParFor_Base, T> > >
-{
-	static JobHandle dispatch(T& obj, u32 loopCount, u32 batchSize)
-	{
-		if (loopCount == 0 || batchSize == 0)
-			return nullptr;
-
-		const u32 nBatchGroup	= Math::divideTo(loopCount, batchSize);
-		auto* pObj = &obj;
-		JobFunction task = [pObj](const JobArgs& args) { return pObj->execute(args); };
-
-		JobInfo info;
-		Job* parent = nullptr;
-
-		for (u32 iBatchGroup = 0; iBatchGroup < nBatchGroup; iBatchGroup++)
-		{
-			Job* job = JobSystem::allocateJob();
-			job->init(task, parent);
-			if (iBatchGroup == 0)
-				parent = job;
-
-			info.batchID	 = iBatchGroup;
-			info.batchOffset = iBatchGroup * batchSize;
-			info.batchEnd	 = Math::min(info.batchOffset + batchSize, loopCount);
-
-			job->_setInfo(info);
-
-			JobSystem::submit(job);
-		}
-		return parent;
-	}
-
-	template<class... DEPEND_ON>
-	static JobHandle delayDispatch(T& obj, u32 loopCount, u32 batchSize, DEPEND_ON&&... dependOn)
-	{
-		if (loopCount == 0 || batchSize == 0)
-			return nullptr;
-
-		T* pObj = &obj;
-		Job* spwanJob 	= JobSystem::allocateJob();
-		{
-			JobInfo info;
-			info.batchEnd = 1;
-			spwanJob->_setInfo(info);
-		}
-
-		auto spwanTask = [spwanJob, pObj, loopCount, batchSize](const JobArgs& args)
-		{
-			const u32 nBatchGroup	= Math::divideTo(loopCount, batchSize);
-			JobFunction task = [pObj](const JobArgs& args) { return pObj->execute(args); };
-
-			JobInfo info;
-
-			for (u32 iBatchGroup = 0; iBatchGroup < nBatchGroup; iBatchGroup++)
-			{
-				Job* job = JobSystem::allocateJob();
-				job->init(task, spwanJob);
-
-				info.batchID	 = iBatchGroup;
-				info.batchOffset = iBatchGroup * batchSize;
-				info.batchEnd	 = Math::min(info.batchOffset + batchSize, loopCount);
-
-				job->_setInfo(info);
-
-				JobSystem::submit(job);
-			}
-		};
-		spwanJob->init(spwanTask);
-
-		(spwanJob->runAfter(std::forward<DEPEND_ON>(dependOn)), ...);
-
-		return spwanJob;
-	}
-};
-
-#endif // 0
-
 
 }
