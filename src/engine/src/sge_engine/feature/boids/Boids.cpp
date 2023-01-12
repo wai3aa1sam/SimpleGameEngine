@@ -165,6 +165,11 @@ void Boids::start()
 	_cuboid_mt.create(_setting.boidsSize, _setting.cellSize, _setting.boidsPos);
 
 	_objManager.init(this);
+
+	_setupObjJob.setup(this);
+	_preceieveNearObjJob.setup(this);
+	_updateObjJob.setup(this);
+
 #endif // SGE_IS_MT_BOIDS
 
 }
@@ -209,27 +214,23 @@ void Boids::update()
 #endif // SGE_IS_MT_BOIDS
 
 #if SGE_IS_MT_BOIDS
-
-	_setupObjJob.setup(this);
-	auto setupObjJobHandle = JobSystem::createAndRunNJobs(SetupObjJob::execute, _setupObjJob._data, SetupObjJob::s_kJobCount);
+	
+	JobHandle setupHandle = nullptr;
 	{
-		SGE_PROFILE_SECTION("waitForComplete(setupObjJobHandle)");
-		JobSystem::waitForComplete(setupObjJobHandle);
+		SGE_PROFILE_SECTION("SetupJob");
+		setupHandle = _setupObjJob.delayDispatch((u32)_setting.objectCount, _setting.batchSize, nullptr);
+	}
+	{
+		SGE_PROFILE_SECTION("PreceieveNearObjJob");
+		_handle = _preceieveNearObjJob.delayDispatch((u32)_setting.objectCount, _setting.batchSize, setupHandle);
+	}
+	{
+		SGE_PROFILE_SECTION("UpdateObjJob");
+		_handle = _updateObjJob.delayDispatch((u32)_setting.objectCount, _setting.batchSize, _handle);
 	}
 
-	_preceieveNearObjJob.setup(this);
-	auto preceieveNearObjJobHandle = JobSystem::createAndRunNJobs(PreceieveNearObjJob::execute, _preceieveNearObjJob._data, PreceieveNearObjJob::s_kJobCount);
-	{
-		SGE_PROFILE_SECTION("waitForComplete(preceieveNearObjJobHandle)");
-		JobSystem::waitForComplete(preceieveNearObjJobHandle);
-	}
-
-	_updateObjJob.setup(this);
-	auto updateObjJobHandle = JobSystem::createAndRunNJobs(UpdateObjJob::execute, _updateObjJob._data, UpdateObjJob::s_kJobCount);
-	{
-		SGE_PROFILE_SECTION("waitForComplete(updateObjJobHandle)");
-		JobSystem::waitForComplete(updateObjJobHandle);
-	}
+	setupHandle->submit();
+	_handle->waitForComplete();
 
 	this->_timeSliceIdx++;
 	if (_timeSliceIdx >= _objDivSlicePerTime)
@@ -237,8 +238,6 @@ void Boids::update()
 		_timeSliceIdx = 0;
 	}
 	
-	JobSystem::clearJobs();
-
 #else
 
 	auto& altUpdateIdx = _setting.alternativeUpdateIndex;

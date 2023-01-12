@@ -175,9 +175,9 @@ public:
 	}
 
 	template<class... DEPEND_ON>
-	JobHandle delayDispatch(u32 loopCount, u32 batchSize, DEPEND_ON&&... dependOn)
+	JobHandle delayDispatch(u32 loopCount, u32 batchSize, JobHandle dependOn = nullptr, DEPEND_ON&&... moreDeps)
 	{
-		return delayDispatch(*static_cast<T*>(this), loopCount, batchSize, std::forward<DEPEND_ON>(dependOn)...);
+		return delayDispatch(*static_cast<T*>(this), loopCount, batchSize, dependOn, std::forward<DEPEND_ON>(moreDeps)...);
 	}
 
 public:
@@ -216,7 +216,7 @@ public:
 	}
 
 	template<class T,class... DEPEND_ON>
-	static JobHandle delayDispatch(T& obj, u32 loopCount, u32 batchSize, DEPEND_ON&&... dependOn)
+	static JobHandle delayDispatch(T& obj, u32 loopCount, u32 batchSize, JobHandle dependOn = nullptr, DEPEND_ON&&... moreDeps)
 	{
 		JobDispatcher<T>::static_check<This>();
 		if (loopCount == 0 || batchSize == 0)
@@ -253,7 +253,11 @@ public:
 			spwanJob->init(spwanTask, info);
 		}
 
-		(spwanJob->runAfter(std::forward<DEPEND_ON>(dependOn)), ...);
+		if (dependOn)
+		{
+			spwanJob->runAfter(dependOn);
+		}
+		(spwanJob->runAfter(std::forward<DEPEND_ON>(moreDeps)), ...);
 
 		return spwanJob;
 	}

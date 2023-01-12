@@ -225,420 +225,216 @@ private:
 	int _timeSliceIdx = 0;
 	BoidsCuboid3<BoidsData> _cuboid_mt;
 
-	struct SetupObjJob
+	class SetupObjJob : public JobParFor_Base<SetupObjJob>
 	{
-		static constexpr int s_kJobCount = 16;
-		size_t _objPerSecUpdated = 0;
-
-		struct Data
+	public:
+		void setup(Boids* boids_)
 		{
-			size_t					batchSize	= 0;
-			BoidsData*				readData	= nullptr;
-			BoidsObjUpdateData*		updateData	= nullptr;
+			this->boids			= boids_;
+			this->updateData	= boids_->_objManager.getUpdateData();
+			this->readData		= boids_->_objManager.data();
+		}
 
-			Boids*					boids		= nullptr;
-		};
-
-		Data _data[s_kJobCount];
-
-		void setup(Boids* boids)
+		void execute(const JobArgs& args)
 		{
 			SGE_PROFILE_SCOPED;
 
-			_objPerSecUpdated = 0;
+			auto id = args.loopIndex;
 
-			auto count = boids->_setting.objectCount;
+			auto& update		= updateData[id];
+			const auto& read	= readData[id];
 
-			auto objPerTimeSize = count;	// must be all
-			auto divSize = Boids::roundupToMultiple(objPerTimeSize, s_kJobCount);
-
-			//auto objUpdated = divSize * boids->_timeSliceIdx;
-			auto objUpdated = _objPerSecUpdated;
-			auto objRemain  = count - objUpdated;
-
-			divSize = (objRemain < divSize) ? objRemain : divSize;
-
-			size_t startIdx = objUpdated;
-			size_t endIdx	= startIdx + divSize;
-
-			auto batchSize = divSize / s_kJobCount;
-
-			if (batchSize == 0)
-			{
-				if (divSize == 0)
-				{
-					SGE_LOG("batch is 0");
-					return;
-				}
-				batchSize = 1;
-			}
-
-			for (size_t i = 0; i < SetupObjJob::s_kJobCount; i++)
-			{
-				auto& data		= _data[i];
-				data.boids		= boids;
-
-				data.batchSize	= batchSize;
-				data.updateData	= (boids->_objManager.getUpdateData().data() + startIdx);
-				data.readData	= (boids->_objManager.data().data() + startIdx);
-
-				if (startIdx >= boids->_objs.size())
-				{
-					SGE_ASSERT(startIdx < boids->_objs.size());
-				}
-
-				startIdx += batchSize;
-				if (startIdx >= endIdx)
-					break;
-			}
+			update._position = read._position;
+			update._forward  = read._forward;
+			update._speed	 = read._speed;
 		}
-		static void execute(void* param)
-		{
-			SGE_PROFILE_SCOPED;
 
-			auto& data = *static_cast<Data*>(param);
+	private:
+		Boids*						boids		= nullptr;
 
-			const auto& batchSize	= data.batchSize;
-
-			auto& updateData		= data.updateData;
-			auto& readData			= data.readData;
-
-			for (size_t id = 0; id < batchSize; id++)
-			{
-				auto& update		= updateData[id];
-				const auto& read	= readData[id];
-
-				update._position = read._position;
-				update._forward  = read._forward;
-				update._speed	 = read._speed;
-			}
-		}
+		Span<BoidsObjUpdateData>	updateData;
+		Span<BoidsData>				readData;
 	};
 
-	struct PreceieveNearObjJob
+	class PreceieveNearObjJob : public JobParFor_Base<PreceieveNearObjJob>
 	{
-		static constexpr int s_kJobCount = 16;
-		size_t _objPerSecUpdated = 0;
-
-		struct Data
+	public:
+		void setup(Boids* boids_)
 		{
-			size_t					batchSize	= 0;
-			BoidsObjUpdateData*		updateData	= nullptr;
-			BoidsObjUpdateData*		readData	= nullptr;
-			size_t					nBoidsObj	= 0;
+			this->boids		= boids_;
 
-			Boids*					boids		= nullptr;
-		};
+			this->updateData	= boids_->_objManager.getUpdateData();
+			this->readData		= boids_->_objManager.getUpdateData();
 
-		Data _data[s_kJobCount];
-
-		void setup(Boids* boids)
-		{
-			SGE_PROFILE_SCOPED;
-
-			if (boids->_timeSliceIdx == 0)
-			{
-				_objPerSecUpdated = 0;
-			}
-
-			auto count = boids->_setting.objectCount;
-
-			auto objPerTimeSize = count / boids->_objDivSlicePerTime;
-			auto divSize = Boids::roundupToMultiple(objPerTimeSize, s_kJobCount);
-
-			//auto objUpdated = divSize * boids->_timeSliceIdx;
-			auto objUpdated = _objPerSecUpdated;
-			auto objRemain  = count - objUpdated;
-			
-			divSize = (objRemain < divSize) ? objRemain : divSize;
-
-			size_t startIdx = objUpdated;
-			size_t endIdx	= startIdx + divSize;
-
-			_objPerSecUpdated += divSize;
-
-			auto batchSize = divSize / s_kJobCount;
-
-			if (batchSize == 0)
-			{
-				if (divSize == 0)
-				{
-					SGE_LOG("batch is 0");
-					return;
-				}
-				batchSize = 1;
-			}
-
-			for (size_t i = 0; i < PreceieveNearObjJob::s_kJobCount; i++)
-			{
-				auto& data		= _data[i];
-				data.boids		= boids;
-
-				data.batchSize	= batchSize;
-				data.updateData	= (boids->_objManager.getUpdateData().data() + startIdx);
-				data.readData	= boids->_objManager.getUpdateData().data();
-
-#if SGE_IS_BOIDS_NO_NEAR
-				data.nBoidsObj	= 0;
-#else
-				data.nBoidsObj	= boids->_objManager.getUpdateData().size();
-#endif // SGE_IS_BOIDS_NO_NEAR
-
-				if (startIdx >= boids->_objs.size())
-				{
-					SGE_ASSERT(startIdx < boids->_objs.size());
-				}
-
-				startIdx += batchSize;
-				if (startIdx >= endIdx)
-					break;
-			}
+			#if SGE_IS_BOIDS_NO_NEAR
+			this->nBoidsObj	= 0;
+			#else
+			this->nBoidsObj	= boids_->_objManager.getUpdateData().size();
+			#endif // SGE_IS_BOIDS_NO_NEAR
 		}
-		static void execute(void* param)
+
+		void execute(const JobArgs& args)
 		{
 			SGE_PROFILE_SCOPED;
 
-			auto& data = *static_cast<Data*>(param);
-
-			const auto& batchSize	= data.batchSize;
-			
-			auto& updateData		= data.updateData;
-			auto& readData			= data.readData; (void) readData;
-			//auto& nBoidsObj			= data.nBoidsObj;
-
-			auto& boids				= data.boids;
-
-			auto& cuboid			= boids->_cuboid_mt;
+			auto id = args.loopIndex;
 
 			auto& tempObjs = Buf::getTmpObjBuffer();
 			//Vector<BoidsObject*> tempObjs;
-			
+
 			const auto& setting = boids->_setting;
 
-			for (size_t id = 0; id < batchSize; id++)
+			auto& target = updateData[id];
+
+			auto& cuboid			= boids->_cuboid_mt;
+
+			#if SGE_IS_USE_CELL
+			cuboid.getNearbyObjs(tempObjs, target._position);
+			auto nearObjSize = tempObjs.size();
+			#else
+			auto nearObjSize = data.nBoidsObj;
+			#endif
+
+			#if SGE_IS_BOIDS_NO_NEAR
+			nearObjSize = 0;
+			#endif // SGE_IS_BOIDS_NO_NEAR
+
+			for (size_t iObj = 0; iObj < nearObjSize; iObj++)
 			{
-				auto& target = updateData[id];
+				if (id == iObj)
+					continue;
 
-#if SGE_IS_USE_CELL
-				cuboid.getNearbyObjs(tempObjs, target._position);
-				auto nearObjSize = tempObjs.size();
-#else
-				auto nearObjSize = data.nBoidsObj;
-#endif
+				#if SGE_IS_USE_CELL
+				const auto& nearObj = tempObjs[iObj];
+				#else
+				const auto& nearObj = readData[iObj];
+				#endif // 0
 
-#if SGE_IS_BOIDS_NO_NEAR
-				nearObjSize = 0;
-#endif // SGE_IS_BOIDS_NO_NEAR
+				auto center_offset = nearObj._position - target._position;
+				auto dist_sq = center_offset.sqrMagnitude();
 
-				for (size_t iObj = 0; iObj < nearObjSize; iObj++)
+				if (dist_sq < setting.separationRadius * setting.separationRadius)
 				{
-					if (id == iObj)
-						continue;
+					target.totalSeparationPos -= center_offset / dist_sq;
+					target.separationCount++;
+				}
 
-#if SGE_IS_USE_CELL
-					const auto& nearObj = tempObjs[iObj];
-#else
-					const auto& nearObj = readData[iObj];
-#endif // 0
+				if (dist_sq < setting.alignmentRadius * setting.alignmentRadius)
+				{
+					target.totalAlignmentDir += nearObj._forward;
+					target.alignmentCount++;
+				}
 
-					auto center_offset = nearObj._position - target._position;
-					auto dist_sq = center_offset.sqrMagnitude();
-
-					if (dist_sq < setting.separationRadius * setting.separationRadius)
-					{
-						target.totalSeparationPos -= center_offset / dist_sq;
-						target.separationCount++;
-					}
-
-					if (dist_sq < setting.alignmentRadius * setting.alignmentRadius)
-					{
-						target.totalAlignmentDir += nearObj._forward;
-						target.alignmentCount++;
-					}
-
-					if (dist_sq < setting.cohesionRadius * setting.cohesionRadius)
-					{
-						target.totalCohesionCenter += nearObj._position;
-						target.cohesionCount++;
-					}
+				if (dist_sq < setting.cohesionRadius * setting.cohesionRadius)
+				{
+					target.totalCohesionCenter += nearObj._position;
+					target.cohesionCount++;
 				}
 			}
-
 			Buf::freeOwnBuf();
 		}
+
+	private:
+		Boids*						boids		= nullptr;
+
+		size_t						nBoidsObj	= 0;
+		Span<BoidsObjUpdateData>	updateData;
+		Span<BoidsObjUpdateData>	readData;
 	};
 
-	struct UpdateObjJob
+	class UpdateObjJob : public JobParFor_Base<UpdateObjJob>
 	{
-		static constexpr int s_kJobCount = 16;
-		size_t _objPerSecUpdated = 0;
-		size_t _remainForlastBatch = 0;
-
-		struct Data
+	public:
+		void setup(Boids* boids_)
 		{
-			size_t					batchSize	= 0;
-			BoidsObjUpdateData*		readData	= nullptr;
-			BoidsData*				updateData	= nullptr;
+			this->boids = boids_;
 
-			Boids*					boids		= nullptr;
-
-			size_t timeSliceIdx = 0;
-		};
-
-		Data _data[s_kJobCount];
-
-		void setup(Boids* boids)
-		{
-			SGE_PROFILE_SCOPED;
-
-			if (boids->_timeSliceIdx == 0)
-			{
-				_objPerSecUpdated = 0;
-			}
-
-			auto count = boids->_setting.objectCount;
-
-			auto objPerTimeSize = count / boids->_objDivSlicePerTime;
-			auto divSize = Boids::roundupToMultiple(objPerTimeSize, s_kJobCount);
-
-			//auto objUpdated = divSize * boids->_timeSliceIdx;
-			auto objUpdated = _objPerSecUpdated;
-			auto objRemain  = count - objUpdated;
-
-			divSize = (objRemain < divSize) ? objRemain : divSize;
-
-			size_t startIdx = objUpdated;
-			size_t endIdx	= startIdx + divSize;
-
-			if (_objPerSecUpdated != 0)
-			{
-				//SGE_LOG("divSize: {}", divSize);
-				//SGE_LOG("start: {}, end: {}", startIdx, endIdx);
-			}
-
-			_objPerSecUpdated += divSize;
-
-			auto batchSize = divSize / s_kJobCount;
-
-			if (batchSize == 0)
-			{
-				if (divSize == 0)
-				{
-					SGE_LOG("batch is 0");
-					return;
-				}
-				batchSize = 1;
-			}
-
-			if (_objPerSecUpdated != 0)
-			{
-				//SGE_LOG("batchSize: {}", batchSize);
-			}
-
-			for (size_t i = 0; i < UpdateObjJob::s_kJobCount; i++)
-			{
-				auto& data		= _data[i];
-				data.boids		= boids;
-
-				data.batchSize	= batchSize;
-				data.readData	= (boids->_objManager.getUpdateData().data() + startIdx);
-				data.updateData	= (boids->_objManager.data().data() + startIdx);
-
-				if (startIdx >= boids->_objs.size())
-				{
-					SGE_ASSERT(startIdx < boids->_objs.size());
-				}
-
-				startIdx += batchSize;
-				if (startIdx >= endIdx)
-					break;
-			}
+			this->readData		= boids_->_objManager.getUpdateData();
+			this->updateData	= boids_->_objManager.data();
 		}
-		
-		static void execute(void* param)
+
+		void execute(const JobArgs& args)
 		{
 			SGE_PROFILE_SCOPED;
 
-			auto& data = *static_cast<Data*>(param);
+			auto id = args.loopIndex;
 
-			const auto& batchSize	= data.batchSize;
-
-			auto& readData		= data.readData;
-			auto& updateData	= data.updateData;
-
-			auto& boids				= data.boids;
+			auto& update		= updateData[id];
+			const auto& read	= readData[id];
 
 			const auto& setting = boids->_setting;
 
 			float dt = 1.0f / 60;
 
-			for (size_t id = 0; id < batchSize; id++)
+			auto separationCount = read.separationCount;
+			auto alignmentCount  = read.alignmentCount;
+			auto cohesionCount	 = read.cohesionCount;
+
+			const auto& totalSeparationPos	= read.totalSeparationPos;
+			const auto& totalAlignmentDir	= read.totalAlignmentDir;
+			const auto& totalCohesionCenter = read.totalCohesionCenter;
+
+			auto accel = Vec3f::s_zero();
+			auto vel = read._forward * read._speed;
+			float mass = 1.0f;
+
+			if (separationCount)
 			{
-				auto& read	 = readData[id];
-				auto& update = updateData[id];
-				
-				auto separationCount = read.separationCount;
-				auto alignmentCount  = read.alignmentCount;
-				auto cohesionCount	 = read.cohesionCount;
+				auto seperationForce = boids->steerForce(vel, totalSeparationPos / static_cast<T>(separationCount))	* setting.seperateWeight;
+				accel += seperationForce / mass;
+			}
 
-				const auto& totalSeparationPos	= read.totalSeparationPos;
-				const auto& totalAlignmentDir	= read.totalAlignmentDir;
-				const auto& totalCohesionCenter = read.totalCohesionCenter;
+			if (alignmentCount)
+			{
+				auto alignmentForce  = boids->steerForce(vel, totalAlignmentDir / static_cast<T>(alignmentCount))	* setting.alignmentWeight;
+				accel += alignmentForce / mass;
+			}
 
-				auto accel = Vec3f::s_zero();
-				auto vel = read._forward * read._speed;
-				float mass = 1.0f;
+			if (cohesionCount)
+			{
+				auto cohesionForce   = boids->steerForce(vel, totalCohesionCenter / static_cast<T>(cohesionCount))	* setting.cohesionWeight;
+				accel += cohesionForce / mass;
+			}
 
-				if (separationCount)
-				{
-					auto seperationForce = boids->steerForce(vel, totalSeparationPos / static_cast<T>(separationCount))	* setting.seperateWeight;
-					accel += seperationForce / mass;
-				}
+			Physics::RaycastResult3f hit;
+			if (boids->raycast(hit, read._position, read._forward, setting.avoidCollisionRadius))
+			{
+				auto forward = read._forward;
+				auto avoidDir = boids->avoidObstacleRay(read._position, forward, read.rotation());
+				auto avoidCollisionForce = boids->steerForce(vel, avoidDir) * setting.avoidCollisionWeight;
+				accel += avoidCollisionForce / mass;
+			}
 
-				if (alignmentCount)
-				{
-					auto alignmentForce  = boids->steerForce(vel, totalAlignmentDir / static_cast<T>(alignmentCount))	* setting.alignmentWeight;
-					accel += alignmentForce / mass;
-				}
+			vel += accel * dt;
+			float speed = vel.magnitude() + Math::epsilon<T>();
+			Vec3f dir = vel / speed;
+			speed = Math::clamp(speed, setting.minSpeed, setting.maxSpeed);
+			vel = dir * speed;
 
-				if (cohesionCount)
-				{
-					auto cohesionForce   = boids->steerForce(vel, totalCohesionCenter / static_cast<T>(cohesionCount))	* setting.cohesionWeight;
-					accel += cohesionForce / mass;
-				}
+			update._forward = dir;
+			update._position += vel * dt;
+			update._speed = speed;
 
-				Physics::RaycastResult3f hit;
-				if (boids->raycast(hit, read._position, read._forward, setting.avoidCollisionRadius))
-				{
-					auto forward = read._forward;
-					auto avoidDir = boids->avoidObstacleRay(read._position, forward, read.rotation());
-					auto avoidCollisionForce = boids->steerForce(vel, avoidDir) * setting.avoidCollisionWeight;
-					accel += avoidCollisionForce / mass;
-				}
-
-				vel += accel * dt;
-				float speed = vel.magnitude() + Math::epsilon<T>();
-				Vec3f dir = vel / speed;
-				speed = Math::clamp(speed, setting.minSpeed, setting.maxSpeed);
-				vel = dir * speed;
-
-				update._forward = dir;
-				update._position += vel * dt;
-				update._speed = speed;
-
-				if (!boids->boundPos(update._position))
-				{
-					//obj._velocity = Vec3f::s_zero() - obj._velocity;
-					update._position = setting.boidsPos + Physics::unitSphere<float>() * setting.spawnRadius;
-					update._forward  = Physics::unitSphere<T>();
-				}
+			if (!boids->boundPos(update._position))
+			{
+				//obj._velocity = Vec3f::s_zero() - obj._velocity;
+				update._position = setting.boidsPos + Physics::unitSphere<float>() * setting.spawnRadius;
+				update._forward  = Physics::unitSphere<T>();
 			}
 		}
+
+	private:
+		Boids*						boids		= nullptr;
+
+		Span<BoidsObjUpdateData>	readData;
+		Span<BoidsData>				updateData;
 	};
 
 	SetupObjJob			_setupObjJob;
 	PreceieveNearObjJob _preceieveNearObjJob;
 	UpdateObjJob		_updateObjJob;
+
+	JobHandle _handle = nullptr;
 	
 #endif // 0
 

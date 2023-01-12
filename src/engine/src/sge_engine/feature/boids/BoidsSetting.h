@@ -16,7 +16,9 @@ class BoidsSetting : public NonCopyable
 	using T = float;
 	using Vec3 = Vec3<T>;
 public:
-	size_t objectCount = 10000;
+	size_t objectCount = 20000;
+
+	int batchSize = (int)objectCount / 16;
 
 	// Debug
 	bool isUseCuboid			= true;
@@ -109,6 +111,7 @@ const TypeInfo* TypeOf<BoidsSetting>() {
 		{
 			static FieldInfo fi[] = {
 				{"objectCount",	&This::objectCount },
+				{"batchSize",	&This::batchSize },
 
 				{"isUseCuboid " ,			&This::isUseCuboid    },
 				{"isDrawCells"  ,			&This::isDrawCells    },

@@ -81,7 +81,10 @@ void JobSystem::submit(JobHandle job)
 	_execute(job);
 	#else
 
-	SGE_ASSERT(job->_storage.dep.couldRun());
+	if (!job->_storage.dep.couldRun())
+	{
+		SGE_ASSERT(job->_storage.dep.couldRun());
+	}
 
 	auto& threadPool = instance()->_threadPool;
 	threadPool.submit(job);
