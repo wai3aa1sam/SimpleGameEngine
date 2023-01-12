@@ -274,6 +274,9 @@ void Boids::update()
 	_objs[0]->setForward(_forward);
 #endif // SGE_IS_BOIDS_DEBUG
 
+
+	// temporary, should place in end of frame in app
+	JobSystem::instance()->_internal_nextFrame();
 }
 
 void Boids::render(RenderRequest& rdReq)
