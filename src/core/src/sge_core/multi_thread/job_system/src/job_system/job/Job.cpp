@@ -1,9 +1,21 @@
 #include "Job.h"
 #include "../debug/DependencyManager.h"
 
+#include "../JobSystem.h"
+
 namespace sge {
 
 Job::Task Job::s_emptyTask = [](const JobArgs& args) {};
+
+void Job::waitForComplete()
+{
+	JobSystem::instance()->waitForComplete(this);
+}
+
+void Job::submit()
+{
+	JobSystem::submit(this);
+}
 
 void Job::clear()
 {

@@ -167,10 +167,10 @@ private:
 public:
 
 	~Job() = default;
+
+	void waitForComplete();
+	void submit();
 	
-	void clear();
-
-
 	bool isCompleted() const;
 	int jobRemainCount() const;
 
@@ -195,11 +195,12 @@ protected:
 	void _runBefore(Job* job);
 	void* _allocate(size_t n);
 
-
 private:
-	void init(const Task& func, const Info& info, Job* parent = nullptr);
-	void _setInfo(const Info& info);
+	void clear();
 
+	void init(const Task& func, const Info& info, Job* parent = nullptr);
+
+	void _setInfo(const Info& info);
 	void setEmpty();
 
 	void addJobCount();

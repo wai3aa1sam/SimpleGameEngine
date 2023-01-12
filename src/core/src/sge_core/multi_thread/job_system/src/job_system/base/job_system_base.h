@@ -1,6 +1,6 @@
 #pragma once
 
-#include <sge_core-pch.h>
+#include "../../job_system-pch.h"
 
 #include <sge_core/multi_thread/atomic/Synchronize.h>
 #include <sge_core/multi_thread/atomic/AtomicQueue.h>
@@ -92,6 +92,8 @@ static constexpr size_t s_kCacheLine = 64;
 static constexpr int s_kIdleSleepTimeMS = 1;
 static constexpr int s_kBusySleepTimeMS = 0;
 
+static constexpr size_t s_kJobSystemAllocatorFrameCount = SGE_JOB_SYSTEM_ALLOCATOR_FRAME_COUNT;
+
 extern thread_local i32 _threadLocalId;
 inline i32 threadLocalId() { return _threadLocalId; }
 
@@ -123,7 +125,7 @@ template<class T> using NumericLimit = typename std::numeric_limits<T>;
 #endif // 1
 
 #if 0
-#pragma mark --- StackAllocator
+#pragma mark --- StackAllocator-Impl
 #endif // 0
 #if 1
 

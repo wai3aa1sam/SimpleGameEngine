@@ -15,6 +15,8 @@
 
 #include <future>
 
+#include <sge_core/log/Log.h>
+
 namespace sge {
 
 using Mutex		= std::mutex;

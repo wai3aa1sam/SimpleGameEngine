@@ -1,40 +1,29 @@
 #pragma once
 #include "../base/job_system_base.h"
 
-#include "../job/JobAllocator.h"
+#include "../allocator/FrameAllocator.h"
 
 
 namespace sge {
+
+#if 0
+#pragma mark --- ThreadStorage-Impl
+#endif // 0
+#if 1
+
+#endif
 
 class ThreadStorage
 {
 	friend class JobSystem;
 public:
-	ThreadStorage()
-	{
-	}
-
-	~ThreadStorage()
-	{
-		clear();
-	}
+	ThreadStorage() = default;
+	~ThreadStorage() = default;
 
 	i16			localId() const	{ return _localId; }
 	const char* name() const	{ return _name.c_str(); }
 
-	Job* allocateJob()	{ return _jobAllocator.alloc(); }
-	void clearJobs()	{ return _jobAllocator.clear(); }
-
-	JobAllocator& jobAllocator() { return _jobAllocator; }
-
-	//void* allocateParForData(size_t nBytes) { return _parForAllocator.allocate(nBytes); }
-	//void clearParForData()					{ return _parForAllocator.clear(); }
-
-	void clear()
-	{
-		clearJobs();
-		//clearParForData();
-	}
+	Job* allocateJob()	{ return jobAllocator().alloc(); }
 
 	void wake() { resetSleepCount(); }
 	void sleep()
@@ -53,6 +42,13 @@ public:
 			//SGE_PROFILE_LOG(Fmt("Thread {} Busy sleep", localId()).c_str());
 		}
 	}
+
+	void nextFrame()
+	{
+		_frameAllocator.nextFrame();
+	}
+
+	JobAllocator& jobAllocator() { return _frameAllocator.jobAllocator(); }
 
 private:
 	void _init(i16 localId, StrView name = StrView())
@@ -79,15 +75,23 @@ private:
 	bool shouldSleep() const	{ return _sleepCount >= _sleepThreshold; }
 	
 private:
+	// ThreadInfo
 	i16 _localId = -1;
 	String _name;
 
-	JobAllocator _jobAllocator;
-	//LinearAllocator _parForAllocator;
+	// ThreadSleeper
 	int _sleepCount		= 0;
 	int _sleepThreshold = 2000;
+
+	// allocators
+	FrameAllocator _frameAllocator;
 };
 
+#if 0
+#pragma mark --- ThreadStorage-Impl
+#endif // 0
+#if 1
 
+#endif
 
 }

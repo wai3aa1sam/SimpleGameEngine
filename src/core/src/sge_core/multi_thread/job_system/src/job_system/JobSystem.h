@@ -35,41 +35,30 @@ public:
 	~JobSystem();
 
 	static void submit(JobHandle job);
-
-	void clearJobs();
-
-	#if 0
-	template<class T> JobHandle dispatch(T& obj, u32 loopCount, u32 batchSize);
-	template<class T> JobHandle dispatch(T& obj, u32 loopCount);
-	template<class T> JobHandle dispatch(T& obj);
-
-	template<class T, class... DEPEND_ON> JobHandle delayDispatch(T& obj, u32 loopCount, u32 batchSize, DEPEND_ON&&... dependOn);
-	template<class T, class... DEPEND_ON> JobHandle delayDispatch(T& obj, u32 loopCount, DEPEND_ON&&... dependOn);
-	template<class T, class... DEPEND_ON> JobHandle delayDispatch(T& obj, DEPEND_ON&&... dependOn);
-	#endif // 0
-
 	void waitForComplete(JobHandle job);
-
-	/*JobHandle createJob(const Task& task);
-	JobHandle createSubJob(JobHandle parent, const Task& task);*/
 
 	JobHandle createEmptyJob();
 
-	template<class T, class BATCHER = ByteBatcher<>>
-	JobHandle parallel_for(T* data, size_t count, ParForTask<T> task, BATCHER batcher = ByteBatcher<>());
+	//template<class T, class BATCHER = ByteBatcher<>>
+	//JobHandle parallel_for(T* data, size_t count, ParForTask<T> task, BATCHER batcher = ByteBatcher<>());
 
 	size_t		workersCount();
 	const char*	threadName();
 
+public:
+	void _internal_nextFrame();
+	
 protected:
-	bool _tryGetJob(Job*& job);
+	static JobAllocator& _defaultJobAllocator();
 
+	ThreadStorage& _threadStorage();
+
+private:
+	bool _tryGetJob(Job*& job);
 	void _checkError();
 
 	template<class ALLOCATOR = JobAllocator>
 	static Job* allocateJob(ALLOCATOR& allocator = JobSystem::_defaultJobAllocator());
-
-	static JobAllocator& _defaultJobAllocator();
 
 	static void _execute(Job* job);
 	static void _complete(Job* job);
@@ -77,7 +66,7 @@ protected:
 private:
 	static JobSystem* _instance;
 
-	Vector<UPtr<ThreadStorage>> _storages;
+	Vector<UPtr<ThreadStorage>> _threadStorages;
 
 	ThreadPool _threadPool;
 
@@ -99,50 +88,6 @@ Job* JobSystem::allocateJob(ALLOCATOR& allocator)
 }
 
 #if 0
-
-template<class T> inline 
-JobHandle JobSystem::dispatch(T& obj, u32 loopCount, u32 batchSize)
-{
-	static_assert(IsBaseOf<JobParFor_Base, T>, "T is not JobParFor_Base");
-	return JobDispatcher<T>::dispatch(obj, loopCount, batchSize);
-}
-
-template<class T> inline 
-JobHandle JobSystem::dispatch(T& obj, u32 loopCount)
-{
-	static_assert(IsBaseOf<JobFor_Base, T>, "T is not JobFor_Base");
-	return JobDispatcher<T>::dispatch(obj, loopCount);
-}
-
-template<class T> inline 
-JobHandle JobSystem::dispatch(T& obj)
-{
-	static_assert(IsBaseOf<Job_Base, T>, "T is not Job_Base");
-	return JobDispatcher<T>::dispatch(obj);
-}
-
-template<class T, class... DEPEND_ON> inline 
-JobHandle JobSystem::delayDispatch(T& obj, u32 loopCount, u32 batchSize, DEPEND_ON&&... dependOn)
-{
-	static_assert(IsBaseOf<JobParFor_Base, T>, "T is not JobParFor_Base");
-	return JobDispatcher<T>::delayDispatch(obj, loopCount, batchSize, std::forward<DEPEND_ON>(dependOn)...);
-}
-
-template<class T, class... DEPEND_ON> inline 
-JobHandle JobSystem::delayDispatch(T& obj, u32 loopCount, DEPEND_ON&&... dependOn)
-{
-	static_assert(IsBaseOf<JobFor_Base, T>, "T is not JobFor_Base");
-	return JobDispatcher<T>::delayDispatch(obj, loopCount, std::forward<DEPEND_ON>(dependOn)...);
-}
-
-template<class T, class... DEPEND_ON> inline 
-JobHandle JobSystem::delayDispatch(T& obj, DEPEND_ON&&... dependOn)
-{
-	static_assert(IsBaseOf<Job_Base, T>, "T is not Job_Base");
-	return JobDispatcher<T>::delayDispatch(obj, std::forward<DEPEND_ON>(dependOn)...);
-}
-#endif // 0
-
 template<class T, class BATCHER> inline
 Job* JobSystem::parallel_for(T* data, size_t count, ParForTask<T> task, BATCHER batcher)
 {
@@ -158,12 +103,13 @@ Job* JobSystem::parallel_for(T* data, size_t count, ParForTask<T> task, BATCHER 
 
 	job->init(_parallel_for_impl::invoke<T, BATCHER>, par_data);
 
-#if SGE_JOB_SYSTEM_DEBUG
+	#if SGE_JOB_SYSTEM_DEBUG
 	DependencyManager::addVertex(job);
-#endif // 0
+	#endif // 0
 
 	return job;
 }
+#endif // 0
 
 
 #endif

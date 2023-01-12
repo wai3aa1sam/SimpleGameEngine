@@ -591,16 +591,12 @@ public:
 			{
 				SGE_PROFILE_SCOPED;
 
-
-				auto* jsys = JobSystem::instance();
-
 				auto handle = solverJob_ParFor.dispatch(s_kLoopCount, s_kBatchSize);
 				//auto handle = solverJob_For.dispatch(s_kLoopCount);
 				//auto handle = solverJob.dispatch();
-
-				jsys->waitForComplete(handle);
+				handle->waitForComplete();
 			}
-
+			
 			solverJob_ParFor.print();
 			solverJob_For.print();
 			solverJob.print();
