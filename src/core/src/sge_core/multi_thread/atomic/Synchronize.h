@@ -21,8 +21,14 @@ namespace sge {
 
 using Mutex		= std::mutex;
 using SMutex	= std::shared_mutex;
-using Lock		= std::unique_lock<Mutex>;
-using SLock		= std::shared_lock<Mutex>;
+
+template<class T> using ULockT		= std::unique_lock<T>;
+template<class T> using SLockT		= std::shared_lock<T>;
+
+using ULock		= ULockT<Mutex>;
+using SLock		= SLockT<SMutex>;
+
+template<class... T> using ALock = std::unique_lock<T...>;
 
 using CondVar = std::condition_variable;
 using Thread = std::thread;
@@ -82,7 +88,7 @@ template<class... ARGS> inline
 void atomicLog(ARGS&&... args)
 {
 	static Mutex mutex;
-	Lock lock(mutex);
+	ULock lock(mutex);
 	SGE_LOG(SGE_FORWARD(args)...);
 
 	//TempString buffer;

@@ -23,7 +23,7 @@ public:
 	T* operator->() { return _data; }
 
 private:
-	Lock _lock;			// should lock first
+	ULock _lock;			// should lock first
 	T* _data = nullptr;
 };
 
@@ -77,7 +77,7 @@ public:
 
 
 private:
-	Lock _lock;			// should lock first
+	ULock _lock;			// should lock first
 	CondVar* _condvar = nullptr;
 	T* _data = nullptr;
 };

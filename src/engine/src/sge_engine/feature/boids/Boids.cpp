@@ -181,6 +181,17 @@ void Boids::update()
 	if (!_enableUpdate)
 		return;
 
+	#if SGE_IS_MT_BOIDS
+	{
+		SGE_PROFILE_SECTION("waitForComplete()");
+		if (_handle)
+		{
+			SGE_PROFILE_LOG(StringUtil::toString(_handle->jobRemainCount()).c_str());
+			_handle->waitForComplete();
+		}
+	}
+	#endif
+
 	_setting.alignmentViewAngle = Math::cos(Math::radians(_setting.alignmentViewAngle * 0.5f) );
 	float dt = 1.0f / 60.0f; (void)dt;
 	_time.x += dt;
@@ -213,8 +224,8 @@ void Boids::update()
 
 #endif // SGE_IS_MT_BOIDS
 
-#if SGE_IS_MT_BOIDS
-	
+	#if SGE_IS_MT_BOIDS
+
 	JobHandle setupHandle = nullptr;
 	{
 		SGE_PROFILE_SECTION("SetupJob");
@@ -230,7 +241,6 @@ void Boids::update()
 	}
 
 	setupHandle->submit();
-	_handle->waitForComplete();
 
 	this->_timeSliceIdx++;
 	if (_timeSliceIdx >= _objDivSlicePerTime)
@@ -238,7 +248,8 @@ void Boids::update()
 		_timeSliceIdx = 0;
 	}
 	
-#else
+
+	#else
 
 	auto& altUpdateIdx = _setting.alternativeUpdateIndex;
 	altUpdateIdx = (altUpdateIdx + 1) % _setting.alternativeUpdate;
@@ -248,13 +259,13 @@ void Boids::update()
 		auto& obj = _objs[i];
 		auto* nearbyObjs = &_objs;
 
-#if SGE_IS_USE_CELL && !SGE_IS_BOIDS_NO_NEAR
+	#if SGE_IS_USE_CELL && !SGE_IS_BOIDS_NO_NEAR
 		if (_setting.isUseCuboid)
 		{
 			_cuboid.getNearbyObjs(_tempObjs, obj->_position);
 			nearbyObjs = &_tempObjs;
 		}
-#endif // 0
+	#endif // 0
 
 		think(*obj, dt, *nearbyObjs);
 	}
@@ -266,17 +277,12 @@ void Boids::update()
 	}
 
 
-#endif // SGE_IS_MT_BOIDS
-
+	#endif // SGE_IS_MT_BOIDS
 
 #if SGE_IS_BOIDS_DEBUG
 	_objs[0]->_position = _position;
 	_objs[0]->setForward(_forward);
 #endif // SGE_IS_BOIDS_DEBUG
-
-
-	// temporary, should place in end of frame in app
-	JobSystem::instance()->_internal_nextFrame();
 }
 
 void Boids::render(RenderRequest& rdReq)
