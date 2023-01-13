@@ -32,12 +32,15 @@
 - for 10000 boids objects
 - single-threaded update loop : 18.35ms (~54.5fps)
 - multi-threaded update-loop  : 2.96ms  (~337.8fps, x6.19 speedup)
-
+- capable of updating 30000 objects in the Boids loop in 9.1ms (109fps)
 - warning: single-threaded version are not cache friendly, the result may have some bias.
 
 ![image](https://user-images.githubusercontent.com/120044193/210845309-b2b23266-132a-4dc2-9b1f-292cf629bc9d.png)
 
 ![image](https://user-images.githubusercontent.com/120044193/210845326-6cbb5777-920d-4e89-a9f2-38e9a65a8d53.png)
+
+- delay 1 frame with 30000 boids object 
+![30000-boids](https://user-images.githubusercontent.com/120044193/212269586-9a200c7f-1f0e-442e-80fb-9c6c6af28c2a.jpg)
 
 ## How to Build 
 
