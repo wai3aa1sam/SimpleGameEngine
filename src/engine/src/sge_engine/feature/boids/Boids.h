@@ -164,9 +164,7 @@ private:
 #endif // 0
 
 public:
-#if SGE_IS_MT_BOIDS
-	JobSystem _jsys;
-#endif
+
 
 	RenderRequest* _rdReq = nullptr;
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "EditorMainWindow.h"
+#include "sge_core/multi_thread/job_system/src/job_system.h"
 
 namespace sge {
 
@@ -27,6 +28,8 @@ private:
 	bool _shouldQuit = false;
 
 	EditorLayer* _editorLayer = nullptr;
+
+	JobSystem _jsys;
 };
 
 #if 1 // Temp

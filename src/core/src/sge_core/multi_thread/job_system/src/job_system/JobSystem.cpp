@@ -83,6 +83,7 @@ void JobSystem::submit(JobHandle job)
 
 	if (!job->_storage.dep.couldRun())
 	{
+		// rare case, maybe have some bug, all job should sumbit when dep count is 0
 		SGE_ASSERT(job->_storage.dep.couldRun());
 	}
 
@@ -93,6 +94,7 @@ void JobSystem::submit(JobHandle job)
 
 void JobSystem::_internal_nextFrame()
 {
+	SGE_ASSERT(threadLocalId() == enumInt(ThreadType::Main));
 	for (auto& ts : _threadStorages)
 	{
 		ts->nextFrame();
