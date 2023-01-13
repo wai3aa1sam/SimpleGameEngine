@@ -1,7 +1,8 @@
 #pragma once
+
 #include "../base/job_system_base.h"
-#include "../allocator/temp_LinearAllocator.h"
-#include "Job.h"
+#include "temp_LinearAllocator.h"
+#include "../job/Job.h"
 
 namespace sge {
 
@@ -17,31 +18,23 @@ public:
 
 	~JobAllocator()
 	{
+		clear();
 		//clear();
 	}
 
-	Job* allocate()
+	Job* alloc(u32 size = sizeof(Job))
 	{
-		Job* job = static_cast<Job*>(_allocator.allocate(sizeof(Job)));
-		//_jobs.emplace_back(job);
+		Job* job = static_cast<Job*>(_allocator.allocate(size));
 		return job;
 	}
 
 	void clear()
 	{
-		//for (auto* job : _jobs)
-		//{
-		//	//job->print();
-		//	job->~Job();
-		//}
-		//_allocator.clear();
-
 		_allocator.destructAndClear<Job>();
 	}
 
 private:
 	temp::LinearAllocator _allocator;
-	//Vector<Job*, 64> _jobs; // TODO: remove temp
 };
 
 }

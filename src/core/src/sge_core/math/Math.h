@@ -43,6 +43,15 @@ namespace Math {
 
 	constexpr size_t alignTo(size_t n, size_t a) { return _Helper::alignTo_uint(n, a); }
 
+	template<class T>
+	constexpr T divideTo(T n, T divisor)
+	{
+		// overestimate
+		static_assert(std::is_unsigned<T>::value, "");
+		return (n + divisor - 1) / divisor;
+	}
+
+
 //--------
 	template< class T > constexpr T		NaN		() { return std::numeric_limits<T>::quiet_NaN(); }
 	template< class T > constexpr bool	isNaN	( const T& v )	{ return std::isnan(v); }

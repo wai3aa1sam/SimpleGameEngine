@@ -15,6 +15,8 @@
 
 #include <future>
 
+#include <sge_core/log/Log.h>
+
 namespace sge {
 
 using Mutex		= std::mutex;
@@ -28,7 +30,7 @@ using Thread = std::thread;
 template<class T>	using Queue = eastl::queue<T>;
 template<class T>	using Deque = eastl::deque<T>;
 
-template<class T>	using Function = std::function<T>;
+//template<class T>	using Function = std::function<T>;
 
 template<class T>	using Atomic = std::atomic<T>;
 

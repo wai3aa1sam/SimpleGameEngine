@@ -5,7 +5,7 @@
 #include "job/Job.h"
 
 #include "feature/ParallelFor.h"
-
+#include "feature/JobDispatch.h"
 #include "debug/DependencyManager.h"
 
 namespace sge {
@@ -18,51 +18,55 @@ class JobSystem
 	friend class ThreadPool;
 	friend class _parallel_for_impl;
 
+	SGE_JOB_SYSTEM_JOB_TYPE_FRIEND_CLASS_DECLARE();
+
 private:
 	template <class T> using ParForData = typename _parallel_for_impl::Data<T>;
 	template <class T> using ParForTask = typename ParForData<T>::Task;
 
-
-
 public:
 	using Task = Job::Task;
+	using CRef_JobHandle = const JobHandle&;
 
+public:
+	static JobSystem* instance() { return _instance; }
+public:
 	JobSystem();
 	~JobSystem();
-	static JobSystem* instance() { return _instance; }
 
-	static void waitForComplete(Job* job);
+	static void submit(JobHandle job);
+	void waitForComplete(JobHandle job);
 
-	static void submit(Job* job);
+	JobHandle createEmptyJob();
 
-	static Job* createJob(Task task, void* param);
-	static Job* createSubJob(Job* parent, Task task, void* param);
-	template<class T> static Job* createAndRunNJobs(Task task, T* continuous_data, size_t n);
+	//template<class T, class BATCHER = ByteBatcher<>>
+	//JobHandle parallel_for(T* data, size_t count, ParForTask<T> task, BATCHER batcher = ByteBatcher<>());
 
-	static void clearJobs();
+	size_t		workersCount();
+	const char*	threadName();
 
-	template<class T, class BATCHER = ByteBatcher<>>
-	static Job* parallel_for(T* data, size_t count, ParForTask<T> task, BATCHER batcher = ByteBatcher<>());
-
-	static size_t workersCount();
-
-	static const char* threadName();
-
-protected:
-	static Job* allocateJob();
-	bool _tryGetJob(Job*& job);
+public:
+	void _internal_nextFrame();
 	
+protected:
+	static JobAllocator& _defaultJobAllocator();
+
+	ThreadStorage& _threadStorage();
+
+private:
+	bool _tryGetJob(Job*& job);
+	void _checkError();
+
+	template<class ALLOCATOR = JobAllocator>
+	static Job* allocateJob(ALLOCATOR& allocator = JobSystem::_defaultJobAllocator());
+
 	static void _execute(Job* job);
 	static void _complete(Job* job);
-
-	void _dependencyManager_complete(Job* job);
-
-	void _checkError();
 
 private:
 	static JobSystem* _instance;
 
-	Vector<UPtr<ThreadStorage>> _storages;
+	Vector<UPtr<ThreadStorage>> _threadStorages;
 
 	ThreadPool _threadPool;
 
@@ -73,24 +77,17 @@ private:
 };
 
 #if 0
-#pragma mark --- Storage-Impl ---
+#pragma mark --- JobSystem-Impl ---
 #endif // 0
 #if 1
 
-template<class T> inline 
-Job* JobSystem::createAndRunNJobs(Task task, T* continuous_data, size_t n)
+template<class ALLOCATOR> inline
+Job* JobSystem::allocateJob(ALLOCATOR& allocator)
 {
-	auto waitJob = createJob(Job::s_emptyTask, nullptr);
-	auto* p = continuous_data;
-	for (size_t i = 0; i < n; i++, ++p)
-	{
-		auto* subJob = createSubJob(waitJob, task, p);
-		submit(subJob);
-	}
-	submit(waitJob);
-	return waitJob;
+	return allocator.alloc(sizeof(Job));
 }
 
+#if 0
 template<class T, class BATCHER> inline
 Job* JobSystem::parallel_for(T* data, size_t count, ParForTask<T> task, BATCHER batcher)
 {
@@ -106,12 +103,13 @@ Job* JobSystem::parallel_for(T* data, size_t count, ParForTask<T> task, BATCHER 
 
 	job->init(_parallel_for_impl::invoke<T, BATCHER>, par_data);
 
-#if SGE_JOB_SYSTEM_DEBUG
+	#if SGE_JOB_SYSTEM_DEBUG
 	DependencyManager::addVertex(job);
-#endif // 0
+	#endif // 0
 
 	return job;
 }
+#endif // 0
 
 
 #endif

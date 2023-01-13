@@ -1,21 +1,48 @@
 #pragma once
 #include "../base/job_system_base.h"
 
+#include "../utility/Function.h"
 
 #pragma warning( push )
 #pragma warning( disable : 4324 )
 
 namespace sge {
 
+struct JobArgs
+{
+	using T = u32;
+
+	T loopIndex		= 0;		// SV_DispatchThreadID
+	T batchID		= 0;		// SV_GroupID
+	T batchIndex	= 0;		// SV_GroupIndex
+};
+
+struct JobInfo
+{
+	using T = u32;
+	T batchID		= 0;
+	T batchOffset	= 0;
+	T batchEnd		= 0;
+
+	void clear() { batchID = 0; batchOffset = 0; batchEnd = 0; }
+};
+
+//using JobFunction = Function<void(JobArgs&), 32>;
+using JobFunction = std::function<void(JobArgs&)>;
+
 class alignas(s_kCacheLine) Job //: public NonCopyable
 {
+	SGE_JOB_SYSTEM_JOB_TYPE_FRIEND_CLASS_DECLARE();
+
 public:
 	using Priority = JobPrioity;
+	using Info = JobInfo;
 
-	//using Task = Function<void(void*)>;
-	using Task =  void(*)(void*);
-	
-	static constexpr Task s_emptyTask = [](void*) {};
+	using  Task = JobFunction;
+	static Task s_emptyTask;
+
+	//using Task =  void(*)(void*);
+	//static constexpr Task s_emptyTask = [](void*) {};
 
 private:
 	friend class WorkerThread;
@@ -29,52 +56,47 @@ private:
 #endif // 0
 #if 1
 
-	template<size_t N>
-	struct LocalBuffer
-	{
-		static constexpr size_t s_kCapacity = N - 1;
-		LocalBuffer()
-		{
-			static_assert(N <= 255); // max of u8
-		}
-		~LocalBuffer() { clear(); }
-		void* allocate(size_t n)
-		{
-			SGE_ASSERT(_offset + n <= s_kCapacity);
-			if (_offset + n > s_kCapacity)
-				return nullptr;
-			auto* ret = _data + _offset;
-			_offset += static_cast<u8>(n);
-			return ret;
-		}
-		void clear() { _offset = 0; }
-
-		u8 _data[s_kCapacity];
-		u8 _offset = 0;
-	};
-	template<>
-	struct LocalBuffer<0>
-	{
-	};
-
 	struct NormalData
 	{
 		NormalData()
 		:
 			_jobRemainCount(1), _priority(Priority::Cirtical)
 		{
+			#if SGE_JOB_SYSTEM_IS_CONDITION_DEBUG
+			_resetDebugCheck();
+			#endif // _DEBUG
 		}
+
+		#if SGE_JOB_SYSTEM_IS_CONDITION_DEBUG
+		void _resetDebugCheck()
+		{
+			_isAllowAddDeps.store(true);
+			_isExecuted.store(false);
+			_isSubmitted.store(false);
+		}
+		#endif // _DEBUG
+
+		void setPriority(Priority pri)	{ _priority.store(pri); }
+		Priority priority()				{ return _priority.load(); }
+
 		Task				_task;
-		void*				_param = nullptr;
+		Info				_info;
 
 		// concept of parent and DepData::runAfterThis is a little bit different.
 		// parent may run before the child but DepData::runAfterThis must run after this job
 		Job*				_parent = nullptr;		
 		Atomic<int>			_jobRemainCount = 1;
 
-		Priority			_priority;
 
-		LocalBuffer<34+1>	_localBuf;
+		#if SGE_JOB_SYSTEM_IS_CONDITION_DEBUG
+		Atomic<bool>		_isAllowAddDeps = true;
+		Atomic<bool>		_isExecuted		= false;
+		Atomic<bool>		_isSubmitted	= false;
+		#endif // _DEBUG
+
+	private:
+		Atomic<Priority>	_priority;
+		//Priority			_priority;
 	};
 	struct DepData
 	{
@@ -102,7 +124,7 @@ private:
 		}
 
 		template<class FUNC>
-		void runAfterThis_for_each_ifNoDeps(FUNC func)
+		void runAfterThis_for_each_ifNoDeps(const FUNC& func)
 		{
 			for (auto& job : _runAfterThis)
 			{
@@ -116,7 +138,7 @@ private:
 
 		int	decrDependencyCount()	{ return --_dependencyCount; }
 
-		//bool couldRun() const { return _dependencyCount == 0; }
+		bool couldRun() const { return _dependencyCount.load() == 0; }
 		/*
 		Consider: atomic var called counter; a function logic. if counter == 0 then can perform xxx. suppose the xxx only could run once.
 		situation: thread A decrement counter then context switch to thread B and thread B decrement counter.
@@ -138,29 +160,17 @@ private:
 		Storage()
 		{
 			sizeof(Data);
-			static_assert(sizeof(Data) % s_kCacheLine == 0);
+			//static_assert(sizeof(Data) % s_kCacheLine == 0);
 		}
 	};
 #endif // 1
 public:
 
 	~Job() = default;
+
+	void waitForComplete();
+	void submit();
 	
-	void clear()
-	{
-		_storage.dep._dependencyCount.store(0);
-		_storage.dep._runAfterThis.clear();
-
-		_storage._localBuf.clear();
-		_storage._jobRemainCount = 1;
-		_storage._param = nullptr;
-		_storage._parent = nullptr;
-		_storage._priority = Job::Priority(0);
-		_storage._task = nullptr;
-	}
-
-	void setParent(Job* parent);
-
 	bool isCompleted() const;
 	int jobRemainCount() const;
 
@@ -170,6 +180,8 @@ public:
 	int dependencyCount()  const;
 	size_t runAfterCount() const;
 
+	const Info& info() const;
+
 	void print() const;
 
 	// only useful when enable SGE_JOB_SYSTEM_DEBUG
@@ -177,12 +189,20 @@ public:
 	const char* name() const;
 
 protected:
+	void setParent(Job* parent);
+
 	void _runAfter(Job* job);
 	void _runBefore(Job* job);
 	void* _allocate(size_t n);
 
 private:
-	void init(Task func, void* param, Job* parent = nullptr);
+	void clear();
+
+	void init(const Task& func, const Info& info, Job* parent = nullptr);
+
+	void _setInfo(const Info& info);
+	void setEmpty();
+
 	void addJobCount();
 	int	decrDependencyCount();
 

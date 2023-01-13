@@ -7,6 +7,11 @@ namespace sge {
 class JobFlow
 {
 public:
+	JobFlow()
+	{
+		_jsys = JobSystem::instance();
+	}
+
 	template<class... JOB>
 	auto emplace(JOB&&... job)
 	{
@@ -19,7 +24,7 @@ public:
 		run();
 		for (auto& job : _waitForjobs)
 		{
-			JobSystem::waitForComplete(job);
+			_jsys->waitForComplete(job);
 		}
 	}
 
@@ -34,7 +39,7 @@ public:
 			}
 
 			if (!job->dependencyCount())
-				JobSystem::submit(job);
+				_jsys->submit(job);
 		}
 	}
 
@@ -45,6 +50,8 @@ private:
 	}
 
 private:
+	JobSystem* _jsys = nullptr;
+
 	Vector<Job*, 12> _jobs;
 	Vector<Job*, 12> _waitForjobs;
 };

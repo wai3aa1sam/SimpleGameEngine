@@ -75,6 +75,7 @@ void EditorApp::onRun()
 			Base::pollEvent();
 		}
 
+		//JobSystem::instance()->_internal_nextFrame();
 		SGE_PROFILE_FRAME;
 	}
 }
