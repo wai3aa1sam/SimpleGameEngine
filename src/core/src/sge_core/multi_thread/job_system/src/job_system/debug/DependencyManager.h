@@ -175,23 +175,23 @@ inline void DependencyManager::printRunAfter()
 	auto* dm = instance();
 	auto& depInfo = dm->depInfo();
 	{
-		auto lock_deps = depInfo.table.scopedLock();
+		auto lock_deps = depInfo.table.scopedULock();
 		auto& depTable = *lock_deps.operator->();
 
 		dm->_print_impl(depTable, memberOffset(&JobInfo::dependents));
 	}
 	{
-		auto lock_infos = depInfo.infos.scopedLock();
+		auto lock_infos = depInfo.infos.scopedULock();
 		auto& infos = *lock_infos.operator->();
 
 		dm->_print_info(infos);
 	}
 
 	{
-		auto lock_deps = depInfo.table.scopedLock();
+		auto lock_deps = depInfo.table.scopedULock();
 		auto& depTable = *lock_deps.operator->();
 
-		auto lock_infos = depInfo.infos.scopedLock();
+		auto lock_infos = depInfo.infos.scopedULock();
 		auto& infos = *lock_infos.operator->();
 
 		if (!dm->_checkValid(depTable, infos))
@@ -209,23 +209,23 @@ inline void DependencyManager::printRunBefore()
 	auto& depInfo = dm->depInfo();
 
 	{
-		auto lock_deps = depInfo.table.scopedLock();
+		auto lock_deps = depInfo.table.scopedULock();
 		auto& depTable = *lock_deps.operator->();
 
 		dm->_print_impl(depTable, memberOffset(&JobInfo::runAfterThis));
 	}
 	{
-		auto lock_infos = depInfo.infos.scopedLock();
+		auto lock_infos = depInfo.infos.scopedULock();
 		auto& infos = *lock_infos.operator->();
 
 		dm->_print_info(infos);
 	}
 
 	{
-		auto lock_deps = depInfo.table.scopedLock();
+		auto lock_deps = depInfo.table.scopedULock();
 		auto& depTable = *lock_deps.operator->();
 
-		auto lock_infos = depInfo.infos.scopedLock();
+		auto lock_infos = depInfo.infos.scopedULock();
 		auto& infos = *lock_infos.operator->();
 
 		if (!dm->_checkValid(depTable, infos))
@@ -255,10 +255,10 @@ inline bool DependencyManager::checkValid()
 	auto* dm = instance();
 	{
 		auto& depInfo = dm->depInfo();
-		auto lock_deps = depInfo.table.scopedLock();
+		auto lock_deps = depInfo.table.scopedULock();
 		auto& depTable = *lock_deps.operator->();
 
-		auto lock_infos = depInfo.infos.scopedLock();
+		auto lock_infos = depInfo.infos.scopedULock();
 		auto& infos = *lock_infos.operator->();
 
 		bool isValid = dm->_checkValid(depTable, infos);
@@ -290,14 +290,14 @@ inline void DependencyManager::endCapture(bool verbose)
 	{
 		SGE_LOG("=== DependencyManager::end(), Graph: X RunAfter Y");
 		{
-			auto lock_depTable = depInfo.table.scopedLock();
+			auto lock_depTable = depInfo.table.scopedULock();
 			auto& depTable = *lock_depTable.operator->();
 
 			dm->_print_impl(depTable, memberOffset(&JobInfo::dependents));
 		}
 
 		{
-			auto lock_infos = depInfo.infos.scopedLock();
+			auto lock_infos = depInfo.infos.scopedULock();
 			auto& infos = *lock_infos.operator->();
 
 			dm->_print_info(infos);
@@ -305,10 +305,10 @@ inline void DependencyManager::endCapture(bool verbose)
 	}
 
 	{
-		auto lock_deps = depInfo.table.scopedLock();
+		auto lock_deps = depInfo.table.scopedULock();
 		auto& depTable = *lock_deps.operator->();
 
-		auto lock_infos = depInfo.infos.scopedLock();
+		auto lock_infos = depInfo.infos.scopedULock();
 		auto& infos = *lock_infos.operator->();
 
 		if (!dm->_checkValid(depTable, infos))
@@ -344,7 +344,7 @@ inline void DependencyManager::addVertex(const Job* job)
 	JobInfo* info = nullptr;
 
 	{
-		auto lock_deps = dm->depInfo().table.scopedLock();
+		auto lock_deps = dm->depInfo().table.scopedULock();
 		auto& depTable = *lock_deps.operator->();
 
 		auto dep_pair = depTable.find(job);
@@ -359,18 +359,18 @@ inline void DependencyManager::addVertex(const Job* job)
 	}
 
 	{
-		auto lock_job = dm->depInfo().infos.scopedLock();
+		auto lock_job = dm->depInfo().infos.scopedULock();
 		lock_job->emplace_back(info);
 	}
 #endif // 0
 
 	{
 		auto& depInfo = dm->depInfo();
-		auto lock_depTable = depInfo.table.scopedLock();
+		auto lock_depTable = depInfo.table.scopedULock();
 		auto& depTable = *lock_depTable.operator->();
 		JobInfo* info = dm->_createIfNotExist(depTable, job); (void)info;
 		{
-			auto lock_job = depInfo.infos.scopedLock();
+			auto lock_job = depInfo.infos.scopedULock();
 			lock_job->emplace_back(info);
 		}
 	}
@@ -378,11 +378,11 @@ inline void DependencyManager::addVertex(const Job* job)
 	if (dm->_depInfoStack.size() > 0)
 	{
 		auto& depInfo = dm->_depInfoStack.back();
-		auto lock_depTable = depInfo.table.scopedLock();
+		auto lock_depTable = depInfo.table.scopedULock();
 		auto& depTable = *lock_depTable.operator->();
 		JobInfo* info = dm->_createIfNotExist(depTable, job); (void)info;
 		{
-			auto lock_job = depInfo.infos.scopedLock();
+			auto lock_job = depInfo.infos.scopedULock();
 			lock_job->emplace_back(info);
 		}
 	}
@@ -394,7 +394,7 @@ void DependencyManager::XRunAfterY(const Job* x, JOB&&... y)
 	auto* dm = instance();
 
 #if 0
-	auto lock_deps = dm->depInfo().table.scopedLock();
+	auto lock_deps = dm->depInfo().table.scopedULock();
 	auto& depTable = *lock_deps.operator->();
 
 	auto dep_pair = depTable.find(x);
@@ -415,7 +415,7 @@ void DependencyManager::XRunAfterY(const Job* x, JOB&&... y)
 		auto& depInfo = dm->depInfo();
 		JobInfo* info = nullptr;
 		{
-			auto lock_depTable = depInfo.table.scopedLock();
+			auto lock_depTable = depInfo.table.scopedULock();
 			auto& depTable = *lock_depTable.operator->();
 			info = dm->_find(depTable, x, false);
 		}
@@ -429,7 +429,7 @@ void DependencyManager::XRunAfterY(const Job* x, JOB&&... y)
 		auto& depInfo = dm->_depInfoStack.back();
 		JobInfo* info = nullptr;
 		{
-			auto lock_depTable = depInfo.table.scopedLock();
+			auto lock_depTable = depInfo.table.scopedULock();
 			auto& depTable = *lock_depTable.operator->();
 			info = dm->_find(depTable, x, false);
 		}
@@ -446,7 +446,7 @@ void DependencyManager::XRunBeforeY(const Job* x, JOB&&... y)
 
 #if 0
 	{
-		auto lock_deps = dm->depInfo().table.scopedLock();
+		auto lock_deps = dm->depInfo().table.scopedULock();
 		auto& depTable = *lock_deps.operator->();
 
 		auto dep_pair = depTable.find(x);
@@ -467,7 +467,7 @@ void DependencyManager::XRunBeforeY(const Job* x, JOB&&... y)
 		auto& depInfo = dm->depInfo();
 		JobInfo* info = nullptr;
 		{
-			auto lock_depTable = depInfo.table.scopedLock();
+			auto lock_depTable = depInfo.table.scopedULock();
 			auto& depTable = *lock_depTable.operator->();
 			info = dm->_find(depTable, x, false);
 		}
@@ -481,7 +481,7 @@ void DependencyManager::XRunBeforeY(const Job* x, JOB&&... y)
 		auto& depInfo = dm->_depInfoStack.back();
 		JobInfo* info = nullptr;
 		{
-			auto lock_depTable = depInfo.table.scopedLock();
+			auto lock_depTable = depInfo.table.scopedULock();
 			auto& depTable = *lock_depTable.operator->();
 			info = dm->_find(depTable, x, false);
 		}
@@ -501,8 +501,8 @@ inline void DependencyManager::resetFrame()
 {
 	auto* dm = instance();
 	auto& depInfo = dm->depInfo();
-	depInfo.infos.scopedLock()->clear();
-	depInfo.table.scopedLock()->clear();
+	depInfo.infos.scopedULock()->clear();
+	depInfo.table.scopedULock()->clear();
 	depInfo.nextFinishOrder.store(1);
 	depInfo.nextStartOrder.store(1);
 }
@@ -511,7 +511,7 @@ inline void DependencyManager::jobExecute(const Job* job)
 {
 	auto* dm = instance();
 #if 0
-	auto lock_deps = dm->depInfo().table.scopedLock();
+	auto lock_deps = dm->depInfo().table.scopedULock();
 	auto& depTable = *lock_deps.operator->();
 
 	auto dep_pair = depTable.find(job);
@@ -532,7 +532,7 @@ inline void DependencyManager::jobExecute(const Job* job)
 		auto& depInfo = dm->depInfo();
 		JobInfo* info = nullptr;
 		{
-			auto lock_depTable = depInfo.table.scopedLock();
+			auto lock_depTable = depInfo.table.scopedULock();
 			auto& depTable = *lock_depTable.operator->();
 			info = dm->_find(depTable, job, false);
 		}
@@ -547,7 +547,7 @@ inline void DependencyManager::jobExecute(const Job* job)
 		auto& depInfo = dm->_depInfoStack.back();
 		JobInfo* info = nullptr;
 		{
-			auto lock_depTable = depInfo.table.scopedLock();
+			auto lock_depTable = depInfo.table.scopedULock();
 			auto& depTable = *lock_depTable.operator->();
 			info = dm->_find(depTable, job, false);
 		}
@@ -562,7 +562,7 @@ inline void DependencyManager::jobFinish(const Job* job)
 {
 	auto* dm = instance();
 #if 0
-	auto lock_deps = dm->depInfo().table.scopedLock();
+	auto lock_deps = dm->depInfo().table.scopedULock();
 	auto& depTable = *lock_deps.operator->();
 
 	auto dep_pair = depTable.find(job);
@@ -587,7 +587,7 @@ inline void DependencyManager::jobFinish(const Job* job)
 		auto& depInfo = dm->depInfo();
 		JobInfo* info = nullptr;
 		{
-			auto lock_depTable = depInfo.table.scopedLock();
+			auto lock_depTable = depInfo.table.scopedULock();
 			auto& depTable = *lock_depTable.operator->();
 			info = dm->_find(depTable, job, false);
 		}
@@ -607,7 +607,7 @@ inline void DependencyManager::jobFinish(const Job* job)
 		auto& depInfo = dm->_depInfoStack.back();
 		JobInfo* info = nullptr;
 		{
-			auto lock_depTable = depInfo.table.scopedLock();
+			auto lock_depTable = depInfo.table.scopedULock();
 			auto& depTable = *lock_depTable.operator->();
 			info = dm->_find(depTable, job, false);
 		}

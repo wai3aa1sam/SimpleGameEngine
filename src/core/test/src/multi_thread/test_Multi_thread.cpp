@@ -591,6 +591,28 @@ public:
 			{
 				SGE_PROFILE_SCOPED;
 
+				SMutexProtected<int> a;
+				//auto& data = a.scopedULock();
+				auto data = a.scopedSLock(); (void)data;
+				SGE_DUMP_VAR(*data);
+				
+				MutexProtected<int> aa;
+				auto data2 = aa.scopedULock();
+				SGE_DUMP_VAR(*data2);
+				
+				CondVarProtected<int> aaa;
+				auto data3 = aaa.scopedULock();
+				SGE_DUMP_VAR(*data3);
+
+				struct test2
+				{
+					int a = 10;
+				};
+				
+				SMtxCondVarProtected<int> aaaa;
+				auto data4 = aaaa.scopedSLock();
+				SGE_DUMP_VAR(*data4);
+				
 				auto handle = solverJob_ParFor.dispatch(s_kLoopCount, s_kBatchSize);
 				//auto handle = solverJob_For.dispatch(s_kLoopCount);
 				//auto handle = solverJob.dispatch();

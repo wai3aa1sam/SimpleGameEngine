@@ -186,7 +186,6 @@ void Boids::update()
 		SGE_PROFILE_SECTION("waitForComplete()");
 		if (_handle)
 		{
-			SGE_PROFILE_LOG(StringUtil::toString(_handle->jobRemainCount()).c_str());
 			_handle->waitForComplete();
 		}
 	}

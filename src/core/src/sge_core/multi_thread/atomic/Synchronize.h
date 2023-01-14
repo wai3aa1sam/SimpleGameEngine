@@ -22,15 +22,17 @@ namespace sge {
 using Mutex		= std::mutex;
 using SMutex	= std::shared_mutex;
 
-template<class T> using ULockT		= std::unique_lock<T>;
-template<class T> using SLockT		= std::shared_lock<T>;
+template<class T> using ULock_T		= std::unique_lock<T>;
+template<class T> using SLock_T		= std::shared_lock<T>;
 
-using ULock		= ULockT<Mutex>;
-using SLock		= SLockT<SMutex>;
+using ULock		= ULock_T<Mutex>;
+using SLock		= SLock_T<SMutex>;
 
 template<class... T> using ALock = std::unique_lock<T...>;
 
-using CondVar = std::condition_variable;
+using CondVar	= std::condition_variable;
+using CondVarA	= std::condition_variable_any;
+
 using Thread = std::thread;
 
 template<class T>	using Queue = eastl::queue<T>;
