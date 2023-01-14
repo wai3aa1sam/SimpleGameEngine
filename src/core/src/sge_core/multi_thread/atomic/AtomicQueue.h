@@ -23,7 +23,7 @@ public:
 
 	void push(const T& ele)
 	{
-		auto data = _data.scopedLock();
+		auto data = _data.scopedULock();
 		auto& head = data->_head;
 		auto& tail = data->_tail;
 		if (!head->data)
@@ -45,7 +45,7 @@ public:
 
 	bool try_pop(T& out)
 	{
-		auto data = _data.scopedLock();
+		auto data = _data.scopedULock();
 		auto& head = data->_head;
 		auto& tail = data->_tail;
 		if (!head->data)
@@ -62,7 +62,7 @@ public:
 
 	void isEmpty() const
 	{
-		auto data = _data.scopedLock();
+		auto data = _data.scopedULock();
 		auto& head = data->_head;
 		return !head->data;
 	}
@@ -90,25 +90,25 @@ public:
 
 	bool isEmpty() const
 	{
-		auto queue = _queue.scopedLock();
+		auto queue = _queue.scopedULock();
 		return queue->size() == 0;
 	}
 
 	SizeType size() const
 	{
-		auto queue = _queue.scopedLock();
+		auto queue = _queue.scopedULock();
 		return queue->size();
 	}
 
 	void push(const T& data)
 	{
-		auto queue = _queue.scopedLock();
+		auto queue = _queue.scopedULock();
 		queue->push_back(data);
 	}
 
 	bool try_pop(T& o)
 	{
-		auto queue = _queue.scopedLock();
+		auto queue = _queue.scopedULock();
 
 		if (!queue->size())
 			return false;
@@ -119,7 +119,7 @@ public:
 
 	bool try_steal(T& o)
 	{
-		auto queue = _queue.scopedLock();
+		auto queue = _queue.scopedULock();
 
 		if (!queue->size())
 			return false;

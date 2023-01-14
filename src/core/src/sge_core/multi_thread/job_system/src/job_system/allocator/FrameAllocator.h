@@ -23,7 +23,9 @@ public:
 
 	void clearAll()
 	{
-		std::unique_lock lock(_mtx);
+		auto iFrame_data = _iFrame.scopedULock();
+		auto& iFrame = *iFrame_data; (void)iFrame;
+
 		for (size_t i = 0; i < s_kFrameCount; i++)
 		{
 			_jobAllocators[i].clear();
@@ -35,40 +37,37 @@ public:
 	{
 		//SGE_ASSERT(false, "currently have race condition, when the job is allocating job between frame.");
 		// no share lock, then the job may allocating and clear immediately
-		std::unique_lock lock(_mtx);
+		auto iFrame_data = _iFrame.scopedULock();
+		auto& iFrame = *iFrame_data;
 
-		auto str = Fmt("current frame thread: {}, frame: {}", threadLocalId(), _iFrame);
-		SGE_PROFILE_LOG(str.c_str());
 		
 		//_iFrame.store((_iFrame.load() + 1) % s_kFrameCount);
-		_iFrame = (_iFrame + 1) % s_kFrameCount;
+		iFrame = (iFrame + 1) % s_kFrameCount;
 
-		str.clear();
-		FmtTo(str, "current frame thread: {}, frame: {}", threadLocalId(), _iFrame);
-		SGE_PROFILE_LOG(str.c_str());
-		
-		// race condition
-		clear();
+		// race condition (if no lock)
+		clear(iFrame_data);
 	}
 	
-	Job* allocJob()							{ SLock lock(_mtx); return _jobAllocators[_iFrame].alloc(); }
+	Job* allocJob()							{ auto iFrame_data = _iFrame.scopedSLock(); auto& iFrame = *iFrame_data; return _jobAllocators[iFrame].alloc(); }
 
-	JobAllocator& jobAllocator()			{ SLock lock(_mtx); return _jobAllocators[_iFrame]; }
-	JobAllocator& jobDependencyAllocator()	{ SLock lock(_mtx); return _jobDependencyAllocators[_iFrame]; }
+	JobAllocator& jobAllocator()			{ auto iFrame_data = _iFrame.scopedSLock(); auto& iFrame = *iFrame_data; return _jobAllocators[iFrame]; }
+	JobAllocator& jobDependencyAllocator()	{ auto iFrame_data = _iFrame.scopedSLock(); auto& iFrame = *iFrame_data; return _jobDependencyAllocators[iFrame]; }
 
-protected:
-	void clear()
+private:
+	template<class T>
+	void clear(T& iFrame_data)
 	{
+		auto& iFrame = *iFrame_data;
+
 		// don't lock
-		_jobAllocators[_iFrame].clear();
-		_jobDependencyAllocators[_iFrame].clear();
+		_jobAllocators[iFrame].clear();
+		_jobDependencyAllocators[iFrame].clear();
 	}
 
 private:
-	SMutex _mtx;
-	int				_iFrame = 0;
-	JobAllocator	_jobAllocators[FRAME_COUNT];
-	JobAllocator	_jobDependencyAllocators[FRAME_COUNT];
+	SMutexProtected<int>	_iFrame;
+	JobAllocator			_jobAllocators[FRAME_COUNT];
+	JobAllocator			_jobDependencyAllocators[FRAME_COUNT];
 };
 
 class FrameAllocator : public FrameAllocator_Storage<s_kJobSystemAllocatorFrameCount>
