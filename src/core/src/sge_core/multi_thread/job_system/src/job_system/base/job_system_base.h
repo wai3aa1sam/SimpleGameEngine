@@ -16,6 +16,7 @@
 
 #include <EASTL/algorithm.h>
 #include <EASTL/sort.h>
+#include <functional>
 
 namespace sge {
 
@@ -92,10 +93,14 @@ static constexpr size_t s_kCacheLine = 64;
 static constexpr int s_kIdleSleepTimeMS = 1;
 static constexpr int s_kBusySleepTimeMS = 0;
 
+static constexpr size_t s_kAlignment = 8;
+
 static constexpr size_t s_kJobSystemAllocatorFrameCount = SGE_JOB_SYSTEM_ALLOCATOR_FRAME_COUNT;
 
 extern thread_local i32 _threadLocalId;
 inline i32 threadLocalId() { return _threadLocalId; }
+
+#define SGE_ALIGN_OF alignof
 
 class Job;
 using JobHandle = Job*;
@@ -117,22 +122,101 @@ template<class BASE, class DERIVED> inline constexpr bool IsBaseOf  = IsBaseOfT<
 template<bool COND, class IF_TRUE_T, class IF_FASLE_T> using ConditionalT	= typename std::conditional<COND, IF_TRUE_T, IF_FASLE_T>;
 template<bool COND, class IF_TRUE_T, class IF_FASLE_T> using Conditional	= typename ConditionalT<COND, IF_TRUE_T, IF_FASLE_T>::type;
 
-template<class T, T VALUE> using IntConstant = typename std::integral_constant<T, VALUE>;
+template<class T, T VALUE> using					IntConstant_T	= typename std::integral_constant<T, VALUE>;
+template<class T, T VALUE> inline constexpr bool	IntConstant		= std::integral_constant<T, VALUE>::value;
+
+template<class T> using					IsFunction_T	= std::is_function<T>;
+template<class T> inline constexpr bool	IsFunction		= IsFunction_T<T>::value;
+
+
 
 template<class T> using NumericLimit = typename std::numeric_limits<T>;
 
 
 #endif // 1
 
+
+#if 0
+#pragma mark --- UPtr_Deleter-Impl
+#endif // 0
+#if 1
+
+// reference: https://stackoverflow.com/questions/19053351/how-do-i-use-a-custom-deleter-with-a-stdunique-ptr-member
+
+template <auto FUNC>
+struct UPtr_Deleter
+{
+	template <typename T>
+	constexpr void operator()(T* p) {
+		FUNC(p);
+	}
+};
+
+template <class CLASS_T, void(CLASS_T::*FUNC)(void*)>
+struct UPtr_MemberDeleter
+{
+	UPtr_MemberDeleter(CLASS_T* classT) : _classT(classT) {}
+
+	template <typename T>
+	constexpr void operator()(T* p) {
+		(_classT->*FUNC)(p);
+	}
+private:
+	CLASS_T* _classT = nullptr;
+};
+
+template<class ALLOCATOR>
+struct UPtr_AllocatorDeleter
+{
+	using Allocator = ALLOCATOR;
+	UPtr_AllocatorDeleter(Allocator& buf)
+		: _allocator(&buf)
+	{
+	}
+	template <typename T>
+	constexpr void operator()(T* arg) {
+		free(arg);
+	}
+
+	void free(void* p) { _allocator->free(p, 0); }
+
+private:
+	Allocator* _allocator = nullptr;
+};
+
+#if 0 // example
+{
+	using LocalBuffer = test::LocalBuffer_T<10, s_kAlignment, false>;
+	LocalBuffer localBuf;
+	UPtr_AllocatorDeleter<LocalBuffer> deleter{ localBuf };
+
+	auto* p = localBuf.alloc(4); (void)p;
+
+	UPtr2<int, UPtr_AllocatorDeleter<LocalBuffer>> up{ nullptr, deleter };
+	up.reset((int*)p);
+	up.reset(nullptr);
+
+	eastl::unique_ptr<int, UPtr_Deleter < destroy<int> >> up2{ nullptr };
+
+	UPtr_MemberDeleter< UPtr_AllocatorDeleter<LocalBuffer>, &UPtr_AllocatorDeleter<LocalBuffer>::free > deleterHelper2{ &deleter };
+	//eastl::unique_ptr<int, UPtr_MemberDeleter < LocalBuffer, &LocalBuffer::free> > up3 {nullptr, &localBuf};
+
+	up2.reset((int*)p);
+	up2.reset(nullptr); 
+}
+#endif // 0 // example
+
+#endif
+
 #if 0
 #pragma mark --- StackAllocator-Impl
 #endif // 0
 #if 1
 
-template<size_t N> using T_SizeType =	Conditional<IntConstant<bool, N <= NumericLimit< u8>::max() >::value, u8,
-										Conditional<IntConstant<bool, N <= NumericLimit<u16>::max() >::value, u16,
-										Conditional<IntConstant<bool, N <= NumericLimit<u32>::max() >::value, u32,
-										Conditional<IntConstant<bool, N <= NumericLimit<u64>::max() >::value, u64, u64> >>>;
+template<size_t N> using T_SizeType =	Conditional<IntConstant<bool, N <= NumericLimit< u8>::max() >, u8,
+										Conditional<IntConstant<bool, N <= NumericLimit<u16>::max() >, u16,
+										Conditional<IntConstant<bool, N <= NumericLimit<u32>::max() >, u32,
+										Conditional<IntConstant<bool, N <= NumericLimit<u64>::max() >, u64, u64> >>>;
 
 template<size_t N>
 class LocalBuffer
@@ -185,13 +269,18 @@ private:
 template<>
 class StackAllocator<0> {};
 
-class DefaultAllocator
+template<size_t ALIGN = 8>
+class DefaultAllocator_T
 {
 public:
+	using SizeType = size_t;
 
-	void* alloc(size_t n)
+	static constexpr SizeType s_kAlign	= ALIGN;
+
+	void* alloc(SizeType n)
 	{
-		return new u8[n];
+		intptr_t new_n = Math::alignTo(n, s_kAlign);
+		return new u8[new_n];
 	}
 
 	void free(void* p, size_t n)
@@ -201,8 +290,9 @@ public:
 
 	//void freeAll() { _offset = _storage; }
 	//bool isOwn(void* p) const { return p >= _storage && p < _storage + N; }
-
 };
+
+using DefaultAllocator = DefaultAllocator_T<8>;
 
 #endif
 

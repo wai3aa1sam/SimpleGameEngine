@@ -446,6 +446,10 @@ public:
 
 #else
 
+
+template<class T>
+void destroy(T* p) { SGE_LOG("destroy: {}", sizeof(T)); }
+
 class PrimeNumberSolver
 {
 public:
@@ -591,27 +595,86 @@ public:
 			{
 				SGE_PROFILE_SCOPED;
 
-				SMutexProtected<int> a;
-				//auto& data = a.scopedULock();
-				auto data = a.scopedSLock(); (void)data;
-				SGE_DUMP_VAR(*data);
-				
-				MutexProtected<int> aa;
-				auto data2 = aa.scopedULock();
-				SGE_DUMP_VAR(*data2);
-				
-				CondVarProtected<int> aaa;
-				auto data3 = aaa.scopedULock();
-				SGE_DUMP_VAR(*data3);
-
-				struct test2
 				{
-					int a = 10;
-				};
-				
-				SMtxCondVarProtected<int> aaaa;
-				auto data4 = aaaa.scopedSLock();
-				SGE_DUMP_VAR(*data4);
+					SMutexProtected<int> a;
+					//auto& data = a.scopedULock();
+					auto data = a.scopedSLock(); (void)data;
+					SGE_DUMP_VAR(*data);
+
+					MutexProtected<int> aa;
+					auto data2 = aa.scopedULock();
+					SGE_DUMP_VAR(*data2);
+
+					CondVarProtected<int> aaa;
+					auto data3 = aaa.scopedULock();
+					SGE_DUMP_VAR(*data3);
+
+					struct test2
+					{
+						int a = 10;
+					};
+
+					SMtxCondVarProtected<int> aaaa;
+					auto data4 = aaaa.scopedSLock();
+					SGE_DUMP_VAR(*data4);
+
+				}
+				{
+					struct Test
+					{
+						void test(int a, float b)
+						{
+							SGE_LOG("Test::test(int, float): {}, {}", a, b);
+						}
+					};
+
+					UPtr<int> up2;
+					using Function = test::Function_T<void(int, float), 8, s_kAlignment, true>;
+
+					SGE_DUMP_VAR(sizeof(Function));
+
+					Function func = [&](int a, float b)
+					{
+						SGE_DUMP_VAR(sizeof(up2));
+
+					};
+					func = [&](int a, float b)
+					{
+						SGE_DUMP_VAR(sizeof(up2));
+
+					};
+					func(0, 10);
+
+					SGE_DUMP_VAR(sizeof(func));
+
+					Function func2 = func;
+					Function func3;
+					func3 = func2;
+
+					// cannot call move ctor
+					Function func4 = Function(
+						[&](int a, float b)
+						{
+							SGE_DUMP_VAR(sizeof(up2));
+
+						});
+
+					Function func5 = std::move(func4);
+
+					//static_assert(IsFunction<decltype()>, "Function_T: Type is not a function!");
+
+					SGE_DUMP_VAR(sizeof(func));
+
+					Test test_struct;
+					Function func6 = [&test_struct](int a, float b) { test_struct.test(a, b); };
+					func6(5, 10.0f);
+
+					//test::Function_T<void(int, float)> task = func;
+					//test::Function<void(int, float)> task2;
+					//task2 = func;
+					
+
+				}
 				
 				auto handle = solverJob_ParFor.dispatch(s_kLoopCount, s_kBatchSize);
 				//auto handle = solverJob_For.dispatch(s_kLoopCount);
