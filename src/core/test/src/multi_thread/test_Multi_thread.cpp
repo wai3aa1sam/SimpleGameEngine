@@ -665,9 +665,38 @@ public:
 
 					SGE_DUMP_VAR(sizeof(func));
 
-					Test test_struct;
-					Function func6 = [&test_struct](int a, float b) { test_struct.test(a, b); };
-					func6(5, 10.0f);
+					{
+						Test test_struct;
+						Function func6 = [&test_struct](int a, float b) { test_struct.test(a, b); };
+						func6(5, 10.0f);
+						Function func7 = func6;
+						Function func8;
+						if (func6)
+						{
+							SGE_LOG("if func6");
+						}
+						if (!func8)
+						{
+							SGE_LOG("if func8");
+						}
+						if (func8 == nullptr)
+						{
+							SGE_LOG("if func8");
+						}
+					}
+
+					{
+						Test test_struct;
+						std::function func6 = [&test_struct](int a, float b) { test_struct.test(a, b); };
+						func6(5, 10.0f);
+						std::function func7 = func6;
+						std::function<void(void)> func8;
+
+						if (func8)
+						{
+							SGE_LOG("if std::func8");
+						}
+					}
 
 					//test::Function_T<void(int, float)> task = func;
 					//test::Function<void(int, float)> task2;

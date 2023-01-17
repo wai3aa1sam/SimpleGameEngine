@@ -207,25 +207,26 @@ public:
 	template<class FUNC, class = EnableIfNotFunction<FUNC>>
 	void operator=(FUNC&& func)
 	{
+		_free();
 		_ctor(std::forward<FUNC>(func));
 	}
 
 	void operator=(const Function_T& rhs) 
 	{
+		_free();
 		_clone(rhs);
 }
 
 	void operator=(Function_T&& rhs) 
 	{
+		_free();
 		_move(std::move(rhs));
 	}
 
 	~Function_T()
 	{
-		if (_ftr && !_localBuf.isUsingLocalBuffer(_ftr))
-		{
-			_localBuf.free(_ftr, 0);
-		}
+		_free();
+		_ftr = nullptr;
 	}
 
 	RET operator()(PARAMS&&... params)
@@ -235,7 +236,7 @@ public:
 
 	explicit operator bool() const 
 	{
-		return _ftr == nullptr;
+		return _ftr != nullptr;
 	}
 
 	void operator=(nullptr_t) 
@@ -248,7 +249,7 @@ public:
 		return _ftr == nullptr;
 	}
 
-	friend bool operator==(const Function_T& f1, const Function_T& f2) 
+	/*friend bool operator==(const Function_T& f1, const Function_T& f2) 
 	{
 		return f1._ftr == f2._ftr;
 	}
@@ -256,7 +257,7 @@ public:
 	friend bool operator!=(const Function_T& f1, const Function_T& f2) 
 	{
 		return !(f1 == f2);
-	}
+	}*/
 
 private:
 	template<class FUNC = void>
@@ -290,6 +291,14 @@ private:
 		auto* pfunc = rhs._ftr->clone(buf);
 		_ftr		= pfunc;
 		rhs._ftr	= nullptr;
+	}
+	
+	void _free()
+	{
+		if (_ftr && !_localBuf.isUsingLocalBuffer(_ftr))
+		{
+			_localBuf.free(_ftr, 0);
+		}
 	}
 
 private:
