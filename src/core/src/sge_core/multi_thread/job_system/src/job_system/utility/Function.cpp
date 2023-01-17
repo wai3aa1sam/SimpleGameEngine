@@ -2,9 +2,7 @@
 #include "Function.h"
 
 namespace sge {
-namespace test {
 
 
 
-}
 }

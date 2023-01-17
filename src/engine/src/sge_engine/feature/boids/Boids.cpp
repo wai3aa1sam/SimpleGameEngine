@@ -178,8 +178,8 @@ void Boids::update()
 {
 	SGE_PROFILE_SCOPED;
 
-	if (!_enableUpdate)
-		return;
+	//if (!_enableUpdate)
+	//	return;
 
 	#if SGE_IS_MT_BOIDS
 	{
@@ -227,7 +227,7 @@ void Boids::update()
 
 	JobHandle setupHandle = nullptr;
 	{
-		SGE_PROFILE_SECTION("SetupJob");
+		//SGE_PROFILE_SECTION("SetupJob");
 		setupHandle = _setupObjJob.delayDispatch((u32)_setting.objectCount, _setting.batchSize, nullptr);
 	}
 	{

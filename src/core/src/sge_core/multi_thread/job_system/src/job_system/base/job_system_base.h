@@ -16,6 +16,8 @@
 
 #include <EASTL/algorithm.h>
 #include <EASTL/sort.h>
+#include <EASTL/functional.h>
+
 #include <functional>
 
 namespace sge {
@@ -42,7 +44,8 @@ namespace sge {
 #if SGE_JOB_SYSTEM_ENABLE_SINGLE_THREAD_DEBUG
 
 #define ThreadType_ENUM_LIST(E) \
-	E(Count, = 16)	\
+	E(Main,  = 0)	\
+	E(Count, = 1)	\
 //----------
 SGE_ENUM_CLASS(ThreadType, u8)
 

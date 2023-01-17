@@ -7,8 +7,6 @@
 
 namespace sge {
 
-namespace test {
-
 #if 0
 #pragma mark --- LocalBuffer_T-Impl
 #endif // 0
@@ -178,6 +176,7 @@ public:
 	using FuncType									= RET(PARAMS...);
 	template<class FUNC> using EnableIfNotFunction	= EnableIfNotFunction_T<FUNC, Function_T>;
 	//template <class T> using UPtr					= eastl::unique_ptr<T, UPtr_Deleter<LocalBuffer> >
+	class IFunctor;
 
 public:
 	Function_T() noexcept
@@ -193,7 +192,7 @@ public:
 		_clone(rhs);
 	}
 
-	Function_T(Function_T&& rhs)
+	Function_T(Function_T&& rhs) noexcept
 	{
 		_move(std::move(rhs));
 	}
@@ -204,29 +203,28 @@ public:
 		_ctor(std::forward<FUNC>(func));
 	}
 
-	template<class FUNC, class = EnableIfNotFunction<FUNC>>
-	void operator=(FUNC&& func)
-	{
-		_free();
-		_ctor(std::forward<FUNC>(func));
-	}
-
 	void operator=(const Function_T& rhs) 
 	{
 		_free();
 		_clone(rhs);
 }
 
-	void operator=(Function_T&& rhs) 
+	void operator=(Function_T&& rhs) noexcept
 	{
 		_free();
 		_move(std::move(rhs));
 	}
 
+	template<class FUNC, class = EnableIfNotFunction<FUNC>>
+	void operator=(FUNC&& func) noexcept
+	{
+		_free();
+		_ctor(std::forward<FUNC>(func));
+	}
+
 	~Function_T()
 	{
 		_free();
-		_ftr = nullptr;
 	}
 
 	RET operator()(PARAMS&&... params)
@@ -241,10 +239,10 @@ public:
 
 	void operator=(nullptr_t) 
 	{
-		_ftr = nullptr;
+		_reset();
 	}
 
-	bool operator==(nullptr_t) 
+	bool operator==(nullptr_t) const
 	{
 		return _ftr == nullptr;
 	}
@@ -272,25 +270,39 @@ private:
 	template<class FUNC>
 	void _ctor(FUNC&& func)
 	{
-		staticCheck<FUNC>();
-		auto* buf	= _localBuf.alloc(sizeof(FUNC));
-		auto* pfunc = new(buf) Functor<FUNC>(std::forward<FUNC>(func));
-		_ftr		= pfunc;
+		using Func		= FUNC; //std::decay_t<FUNC>;
+		using Functor	= Functor<FUNC>;
+		staticCheck<Functor>();
+		
+		auto* buf	= _localBuf.alloc(sizeof(Functor));
+		auto* pfunc = new(buf) Functor(std::forward<Func>(func));
+		_reset(pfunc);
 	}
 
 	void _clone(const Function_T& rhs)
 	{
-		auto* buf	= _localBuf.alloc(rhs._ftr->size());
-		auto* pfunc = rhs._ftr->clone(buf);
-		_ftr		= pfunc;
+		if (this == &rhs) return;
+		IFunctor* pfunc = nullptr;
+		if (rhs)
+		{
+			auto* buf	= _localBuf.alloc(rhs._ftr->size());
+			pfunc		= rhs._ftr->clone(buf);
+		}
+		_reset(pfunc);
 	}
 
 	void _move(Function_T&& rhs)
 	{
-		auto* buf	= _localBuf.alloc(rhs._ftr->size());
-		auto* pfunc = rhs._ftr->clone(buf);
-		_ftr		= pfunc;
-		rhs._ftr	= nullptr;
+		if (this == &rhs) return;
+		IFunctor* pfunc = nullptr;
+		if (rhs)
+		{
+			auto* buf	= _localBuf.alloc(rhs._ftr->size());
+			pfunc		= rhs._ftr->clone(buf);
+		}
+		_reset(pfunc);
+
+		rhs._free();
 	}
 	
 	void _free()
@@ -299,6 +311,12 @@ private:
 		{
 			_localBuf.free(_ftr, 0);
 		}
+		_reset();
+	}
+
+	void _reset(IFunctor* p = nullptr)
+	{
+		_ftr = p;
 	}
 
 private:
@@ -307,9 +325,9 @@ private:
 	class IFunctor
 	{
 	public:
-		virtual ~IFunctor() = default;
-		virtual RET operator()(PARAMS&&...) = 0;
-		virtual IFunctor* clone(void* buf) const = 0;
+		virtual ~IFunctor()							= default;
+		virtual RET operator()(PARAMS&&...) const	= 0;
+		virtual IFunctor* clone(void* buf) const	= 0;
 
 		virtual SizeType size() const = 0;
 	};
@@ -318,21 +336,38 @@ private:
 	class Functor final : public IFunctor
 	{
 	public:
-		template<typename FUNCTOR>
-		Functor(FUNCTOR&& func)
-			: _func(std::forward<FUNCTOR>(func))
+		//template<typename FUNCTOR>
+		//Functor(FUNCTOR&& func)
+		//	: _func(std::forward<FUNCTOR>(func))
+		//{}
+
+		Functor(FUNC func)
+			: _func(func)
 		{}
 
-		//virtual RET operator()(PARAMS&&... params) override { return _func(std::forward<PARAMS>(params)...); }
-		virtual RET operator()(PARAMS&&... params) override	{ return std::invoke(_func, std::forward<PARAMS>(params)...); }
-
-		virtual Functor* clone(void* buf) const override 
+		~Functor()
 		{
-			staticCheck<FUNC>();
+			SGE_LOG("~Functor");
+		}
+
+		//virtual RET operator()(PARAMS&&... params) const override { return _func(std::forward<PARAMS>(params)...); }
+		virtual RET operator()(PARAMS&&... params) const override	{ return std::invoke(_func, std::forward<PARAMS>(params)...); }
+
+		virtual IFunctor* clone(void* buf) const override 
+		{
+			staticCheck<Functor>();
+			//SGE_DUMP_VAR(sizeof(FUNC));
+			//SGE_DUMP_VAR(sizeof(Functor));
+			//SGE_DUMP_VAR(sizeof(_func));
+
 			return new(buf) Functor(_func); 
 		};
 
-		virtual SizeType size() const { return sizeof(_func); }
+		virtual SizeType size() const 
+		{ 
+			return sizeof(Functor);
+			//return sizeof(Functor) > sizeof(FUNC) ? sizeof(Functor) : sizeof(FUNC); 
+		}
 
 	private:
 		FUNC _func;
@@ -343,58 +378,48 @@ private:
 	IFunctor*	_ftr = nullptr;
 };
 
-//template<class T>
-//class JobFunction;
-//
-//template<class RET, class... PARAMS>
-//class JobFunction<RET(PARAMS...)> : public NonCopyable
-//{
-//public:
-//	template<class FUNC, class T>
-//	JobFunction(FUNC func, T* obj)
-//	{
-//		static_assert(sizeof() <= sizeof(_stack), "JobFunction do suuport bigger than 24")
-//
-//	}
-//
-//private:
-//	StackAllocator<32> _stack;	// should use fallback allocator if overflow
-//	JobFunction<RET(PARAMS...)>* _fptr = nullptr;
-//};
-//
-
 #endif // 0
 
+struct Test1_Base
+{
 
+};
 
-//template<class FUNC, class T>
-//FUNC bind(FUNC&& func, T& obj)
-//{
-//	return [obj] () {  }
-//}
-//
-//template<class T>
-//class JobFunction;
-//
-//template<class RET, class... PARAMS>
-//class JobFunction<RET(PARAMS...)>
-//{
-//public:
-//	JobFunction()
-//		: _ftr(nullptr)
-//	{}
-//
-//	template<class FUNC>
-//	JobFunction(FUNC&& func)
-//	{
-//		_ftr = std::move(func);
-//	}
-//	RET operator()(PARAMS&&... params)	{ return std::invoke(_ftr, std::forward<PARAMS>(params)...); }
-//
-//private:
-//	RET(*_ftr)(PARAMS...) = nullptr;
-//};
+template<class T>
+struct Test1 : Test1_Base
+{
+	Test1(T t) : func(t) 
+	{
+		SGE_LOG("===");
+		SGE_DUMP_VAR(sizeof(Test1));
+		SGE_DUMP_VAR(sizeof(T));
+		SGE_LOG("===");
+	}
 
-}
+	T func;
+};
+
+struct Test1_VBase
+{
+	virtual ~Test1_VBase()
+	{
+
+	}
+};
+
+template<class T>
+struct Test1V : public Test1_VBase
+{
+	Test1V(T t) : func(t) 
+	{
+		SGE_LOG("===");
+		SGE_DUMP_VAR(sizeof(Test1V));
+		SGE_DUMP_VAR(sizeof(T));
+		SGE_LOG("===");
+	}
+
+	T func;
+};
+
 
 }
