@@ -6,16 +6,18 @@ namespace sge {
 
 JobSystem* JobSystem::_instance = nullptr;
 
-JobSystem::JobSystem()
+JobSystem::JobSystem(int threadTypeCount)
 {
-	SGE_ASSERT(enumInt(ThreadType::Count) <= hardwareThreadCount());
+	SGE_ASSERT(logicalThreadCount() == s_kJobSystemLogicalThreadCount, "please set marco SGE_JOB_SYSTEM_HARDWARE_THREAD_COUNT to correct number");
+	SGE_ASSERT(threadTypeCount <= logicalThreadCount());
+	
 	_instance = this;
+	size_t total_thread = logicalThreadCount();
+	_threadTypeCount = threadTypeCount;
 
-	size_t total_thread = hardwareThreadCount();
-	int thread_type_count = enumInt(ThreadType::Count);
-	int nWorkers = static_cast<int>(total_thread - thread_type_count);
-	int start_index = thread_type_count;
-	SGE_ASSERT(total_thread >= thread_type_count);
+	int nWorkers = static_cast<int>(total_thread - _threadTypeCount);
+	int start_index = _threadTypeCount;
+	SGE_ASSERT(total_thread >= _threadTypeCount);
 
 	//_threadStorages.reserve(total_thread);
 	for (size_t i = 0; i < total_thread; i++)
@@ -24,8 +26,8 @@ JobSystem::JobSystem()
 		back->_init(static_cast<i16>(i));
 	}
 
-	_threadLocalId = enumInt(ThreadType::Main);
-	_threadStorages[enumInt(ThreadType::Main)]->_setName("Main Thread");
+	setThreadLocalId(s_kMainThread);
+	_threadStorages[s_kMainThread]->_setName("Main Thread");
 
 	if (nWorkers)
 	{
@@ -50,7 +52,7 @@ void JobSystem::waitForComplete(Job* job)
 {
 	auto* jsys = this;
 	auto& threadPool = this->_threadPool;
-	auto& storage = *jsys->_threadStorages[enumInt(ThreadType::Main)]; (void)storage;
+	auto& storage = *jsys->_threadStorages[s_kMainThread]; (void)storage;
 
 	while (!job->isCompleted())
 	{
@@ -84,6 +86,9 @@ void JobSystem::submit(JobHandle job)
 	if (!job->_storage.dep.couldRun())
 	{
 		// rare case, maybe have some bug, all job should sumbit when dep count is 0
+		// 19/1/2023: no bug now, since _complete() are not reading and compare the copy, 
+		// when contex-switch, possibly call _complete() multiple times which causing calling multipy runAfterThisIffNoDeps(),
+		// couldRun() would be compare negative number, since it is executed
 		SGE_ASSERT(job->_storage.dep.couldRun());
 	}
 
@@ -94,7 +99,12 @@ void JobSystem::submit(JobHandle job)
 
 void JobSystem::_internal_nextFrame()
 {
-	SGE_ASSERT(threadLocalId() == enumInt(ThreadType::Main));
+	SGE_ASSERT(threadLocalId() == s_kMainThread);
+
+	#if SGE_JOB_SYSTEM_DEBUG
+	DependencyManager::nextFrame();
+	#endif // 0
+
 	for (auto& ts : _threadStorages)
 	{
 		ts->nextFrame();
@@ -116,19 +126,22 @@ JobHandle JobSystem::createEmptyJob()
 	return job;
 }
 
-size_t JobSystem::workersCount() 
+JobSystem::SizeType JobSystem::workersCount()  const
 {
 	auto* jsys = this;
 	jsys->_checkError();
 	return jsys->_threadPool.workerCount();
 }
 
-const char* JobSystem::threadName()
+const char* JobSystem::threadName() const
 {
 	auto* jsys = this;
 	jsys->_checkError();
 	return jsys->_threadStorages[threadLocalId()]->name();
 }
+
+JobSystem::SizeType	JobSystem::workerStartIdx()	const { return _threadTypeCount; }
+JobSystem::SizeType	JobSystem::workersEndIdx()  const { return s_kJobSystemLogicalThreadCount - 1; }
 
 bool JobSystem::_tryGetJob(Job*& job)
 {
@@ -144,7 +157,7 @@ JobAllocator& JobSystem::_defaultJobAllocator()
 	return storage->jobAllocator();
 }
 
-void JobSystem::_checkError()
+void JobSystem::_checkError() const
 {
 	if (!(threadLocalId() >= 0 && threadLocalId() < this->_threadStorages.size()))
 	{
@@ -162,21 +175,21 @@ void JobSystem::_complete(Job* job)
 	//auto& depsOnThis		= job->_storage.dep._depsOnThis;
 
 	//atomicLog("=== task complete");
-	jobRemainCount--;
-
+	int ret = jobRemainCount.fetch_sub(1) - 1;
+	// must have a copy, consider the jobRemainCount maybe 1, when contex-switch, 
+	// other thread is decr the jobRemainCount, both of them will trigger jobRemainCount == 0,
+	// possibly call _complete() multiple times which causing calling multipy runAfterThisIffNoDeps(),
+	
 	#if SGE_JOB_SYSTEM_DEBUG
-	DependencyManager::jobFinish(job);
+	if (!parent)
+		DependencyManager::jobFinish(job);
 	#endif // 0
 
-	if (jobRemainCount.load() == 0)
+	if (ret == 0)	// must compare
 	{
 		if (parent)
 		{
 			_complete(parent);
-
-			#if SGE_JOB_SYSTEM_DEBUG
-			DependencyManager::jobFinish(parent->_storage._parent);
-			#endif // 0
 		}
 
 		job->_storage.dep.runAfterThis_for_each_ifNoDeps(JobSystem::submit);

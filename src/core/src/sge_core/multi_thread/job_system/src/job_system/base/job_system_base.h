@@ -24,14 +24,13 @@ namespace sge {
 
 #if _DEBUG
 
-#define SGE_JOB_SYSTEM_BUILD_CONFIG_RELEASE 0
+#define SGE_JOB_SYSTEM_BUILD_CONFIG_DEBUG 0
 
 #else
 
 #define SGE_JOB_SYSTEM_BUILD_CONFIG_RELEASE 1
 
 #endif // _DEBUG
-
 
 #define SGE_JOB_SYSTEM_ENABLE_THREAD_TYPE 0
 #define SGE_JOB_SYSTEM_ENABLE_SINGLE_THREAD_DEBUG 0
@@ -40,39 +39,6 @@ namespace sge {
 #define SGE_JOB_SYSTEM_IS_CONDITION_DEBUG 1
 
 #define SGE_ENABLE_TRACY_PROILER 1
-
-#if SGE_JOB_SYSTEM_ENABLE_SINGLE_THREAD_DEBUG
-
-#define ThreadType_ENUM_LIST(E) \
-	E(Main,  = 0)	\
-	E(Count, = 1)	\
-//----------
-SGE_ENUM_CLASS(ThreadType, u8)
-
-#else
-
-#if SGE_JOB_SYSTEM_ENABLE_THREAD_TYPE
-
-#define ThreadType_ENUM_LIST(E) \
-	E(Main,)	\
-	E(Render,)	\
-	E(Game,)	\
-	E(Worker,)	\
-	E(Count,)	\
-//----------
-SGE_ENUM_CLASS(ThreadType, u8)
-
-#else
-
-#define ThreadType_ENUM_LIST(E) \
-	E(Main,  = 0)	\
-	E(Count, = 1)	\
-//----------
-SGE_ENUM_CLASS(ThreadType, u8)
-
-#endif // 0
-
-#endif // SGE_JOB_SYSTEM_SINGLE_THREAD_DEBUG
 
 #define JobPrioity_ENUM_LIST(E) \
 	E(Cirtical, = 0)	\
@@ -98,10 +64,15 @@ static constexpr int s_kBusySleepTimeMS = 0;
 
 static constexpr size_t s_kAlignment = 8;
 
-static constexpr size_t s_kJobSystemAllocatorFrameCount = SGE_JOB_SYSTEM_ALLOCATOR_FRAME_COUNT;
+static constexpr size_t s_kMainThread = 0;
 
-extern thread_local i32 _threadLocalId;
-inline i32 threadLocalId() { return _threadLocalId; }
+static constexpr size_t s_kJobSystemAllocatorFrameCount = SGE_JOB_SYSTEM_ALLOCATOR_FRAME_COUNT;
+static constexpr size_t s_kJobSystemLogicalThreadCount	= SGE_JOB_SYSTEM_LOGICAL_THREAD_COUNT;
+
+inline thread_local i32 _threadLocalId = -1;
+inline void setThreadLocalId(i32 id)	{ _threadLocalId = id; }
+inline i32	threadLocalId()				{ SGE_ASSERT(_threadLocalId != -1, "threadLocalId is -1, set it before use"); return _threadLocalId; }
+inline bool isMainThread()				{ return threadLocalId() == s_kMainThread; }
 
 #define SGE_ALIGN_OF alignof
 

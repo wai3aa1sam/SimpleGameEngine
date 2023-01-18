@@ -12,6 +12,7 @@ namespace sge {
 
 // TODO: prioirty
 
+//template<class THREAD_STORAGE = ThreadStorage_Base>
 class JobSystem
 {
 	friend class WorkerThread;
@@ -27,11 +28,12 @@ private:
 public:
 	using Task = Job::Task;
 	using CRef_JobHandle = const JobHandle&;
+	using SizeType = size_t;
 
 public:
 	static JobSystem* instance() { return _instance; }
 public:
-	JobSystem();
+	JobSystem(int threadTypeCount = 1);
 	~JobSystem();
 
 	static void submit(JobHandle job);
@@ -42,8 +44,10 @@ public:
 	//template<class T, class BATCHER = ByteBatcher<>>
 	//JobHandle parallel_for(T* data, size_t count, ParForTask<T> task, BATCHER batcher = ByteBatcher<>());
 
-	size_t		workersCount();
-	const char*	threadName();
+	SizeType	workersCount()		const;
+	const char*	threadName()		const;
+	SizeType	workerStartIdx()	const;
+	SizeType	workersEndIdx()		const;
 
 public:
 	void _internal_nextFrame();
@@ -55,7 +59,7 @@ protected:
 
 private:
 	bool _tryGetJob(Job*& job);
-	void _checkError();
+	void _checkError() const;
 
 	template<class ALLOCATOR = JobAllocator>
 	static Job* allocateJob(ALLOCATOR& allocator = JobSystem::_defaultJobAllocator());
@@ -69,6 +73,8 @@ private:
 	Vector<UPtr<ThreadStorage>> _threadStorages;
 
 	ThreadPool _threadPool;
+
+	int _threadTypeCount = -1;
 
 #if SGE_JOB_SYSTEM_DEBUG
 	DependencyManager _dependencyManager;

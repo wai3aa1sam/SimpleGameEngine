@@ -60,6 +60,7 @@ void Job::_runAfter(Job* job)
 	#endif // 0
 
 	SGE_ASSERT(job != this);
+	//SGE_ASSERT(isMainThread(), "must only add job dependency in main thread");
 
 	this->_storage.dep._dependencyCount.fetch_add(1);
 	job->_storage.dep._runAfterThis.emplace_back(this);	// _runAfterThis is correct, not worng
@@ -78,6 +79,7 @@ void Job::_runBefore(Job* job)
 	#endif // 0
 
 	SGE_ASSERT(job != this);
+	//SGE_ASSERT(isMainThread(), "must only add job dependency in main thread");
 
 	job->_storage.dep._dependencyCount.fetch_add(1);
 	this->_storage.dep._runAfterThis.emplace_back(job);	// _runAfterThis is correct, not worng
@@ -98,8 +100,8 @@ void Job::_setInfo(const Info& info)
 	_storage._info = info;
 }
 
-int		Job::dependencyCount() const	 { return _storage.dep._dependencyCount; }
-size_t	Job::runAfterCount() const { return _storage.dep._runAfterThis.size(); }
+int		Job::dependencyCount() const	{ return _storage.dep._dependencyCount.load(); }
+size_t	Job::runAfterCount() const		{ return _storage.dep._runAfterThis.size(); }
 
 void Job::print() const
 {

@@ -10,7 +10,7 @@
 
 namespace sge {
 
-thread_local int _threadLocalId = -1;
+//thread_local int _threadLocalId = -1;
 
 WorkerThread::WorkerThread(ThreadPool* threadPool, ThreadStorage* storage)
 {
@@ -34,13 +34,13 @@ void WorkerThread::submit(Job* task)
 
 void WorkerThread::onProc()
 {
-	_threadLocalId = _storage->localId();
+	setThreadLocalId(_storage->localId());
 
 	SGE_PROFILE_SET_THREAD_NAME(_storage->name());
 	//SGE_LOG("threadname: {}", tracy::GetThreadName(tracy::GetThreadHandle()));
 
 	std::exception_ptr ptr = nullptr;
-	debugLog("=== _threadLocalId {}, localId {} onProc()", _threadLocalId, localId());
+	debugLog("=== threadLocalId {}, localId {} onProc()", threadLocalId(), localId());
 
 	try
 	{
@@ -63,7 +63,7 @@ void WorkerThread::onProc()
 
 			if (!_tryGetJob(job))
 			{
-			//	log("=== thread {} end, queue count {}", _threadLocalId, _jobs.size());
+			//	log("=== thread {} end, queue count {}", threadLocalId(), _jobs.size());
 				return;
 			}
 		}
@@ -95,13 +95,13 @@ bool WorkerThread::_tryGetJob(Job*& job)
 
 	if (_jobs.try_pop(job))
 	{
-		debugLog("=== thread {} _jobs.try_pop()", _threadLocalId);
+		debugLog("=== thread {} _jobs.try_pop()", threadLocalId());
 		return true;
 	}
 
 	if (_threadPool->trySteal(this, job))
 	{
-		debugLog("=== thread {} trysteal()", _threadLocalId);
+		debugLog("=== thread {} trysteal()", threadLocalId());
 		return true;
 	}
 	

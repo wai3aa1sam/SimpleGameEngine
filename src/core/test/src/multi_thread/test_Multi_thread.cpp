@@ -814,7 +814,7 @@ public:
 
 	void main()
 	{
-		SGE_DUMP_VAR(hardwareThreadCount());
+		SGE_DUMP_VAR(logicalThreadCount());
 		atomicLog("start thread pool");
 		{
 			#if SGE_IS_JOB_SYSTEM_DISPATCH_DEPEND

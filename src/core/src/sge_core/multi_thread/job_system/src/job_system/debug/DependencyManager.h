@@ -119,14 +119,14 @@ private:
 private:
 	static DependencyManager* _instance;
 
-	FrameDepInfoList	_depInfoList;
-	FrameUnrecordedList _unrecord;
-	size_t				_currentFrame = 0;
-	size_t				_currentIndex = 0;
+	FrameDepInfoList		_depInfoList;
+	FrameUnrecordedList		_unrecord;
+	size_t					_currentFrame = 0;
+	SMutexProtected<size_t>	_currentIdx;
 
-	Atomic<int>			_beginCount = 0;
+	Atomic<int>				_beginCount = 0;
 
-	DepInfoStack		_depInfoStack;
+	DepInfoStack			_depInfoStack;
 };
 
 inline DependencyManager* DependencyManager::_instance = nullptr;
@@ -157,6 +157,11 @@ inline DependencyManager::DependencyManager()
 	_unrecord.resize(s_kMaxFrameCount);
 
 	_depInfoStack.reserve(s_kMaxFrameCount);
+
+	{
+		auto curIdx = _currentIdx.scopedULock();
+		*curIdx		= 0;
+	}
 }
 
 inline DependencyManager::~DependencyManager()
@@ -241,7 +246,8 @@ inline void DependencyManager::nextFrame()
 	dm->_currentFrame++;
 	if (dm->_currentFrame >= s_kMaxFrameCount)
 	{
-		dm->_currentIndex = dm->_currentFrame % s_kMaxFrameCount;
+		auto curIdx = dm->_currentIdx.scopedULock();
+		*curIdx		= dm->_currentFrame % s_kMaxFrameCount;
 	}
 	if (dm->_beginCount.load() > 0)
 	{
@@ -493,8 +499,9 @@ void DependencyManager::XRunBeforeY(const Job* x, JOB&&... y)
 
 inline DependencyManager::DependencyInfo& DependencyManager::depInfo()
 {
-	SGE_ASSERT(_currentIndex >= 0 && _currentIndex < s_kMaxFrameCount);
-	return _depInfoList[_currentIndex];
+	auto curIdx = _currentIdx.scopedSLock();
+	SGE_ASSERT(*curIdx >= 0 && *curIdx < s_kMaxFrameCount);
+	return _depInfoList[*curIdx];
 }
 
 inline void DependencyManager::resetFrame()

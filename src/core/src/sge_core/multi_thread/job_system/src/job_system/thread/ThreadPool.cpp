@@ -17,8 +17,8 @@ ThreadPool::~ThreadPool()
 
 void ThreadPool::create(const CreateDesc& desc)
 {
-	SGE_ASSERT(desc.threadCount <= hardwareThreadCount());
-	size_t thread_count = (desc.threadCount == 0) ? hardwareThreadCount() : desc.threadCount;
+	SGE_ASSERT(desc.threadCount <= logicalThreadCount());
+	size_t thread_count = (desc.threadCount == 0) ? logicalThreadCount() : desc.threadCount;
 	//thread_count = ( hardwareThreadCount() - 1) / 2;
 	//thread_count = 1;
 
@@ -86,7 +86,7 @@ bool ThreadPool::trySteal(WorkerThread* worker, Job*& job)
 	while (stealAttempt < _workers.size())
 	{
 		auto target = _rnd.get<size_t>(0, _workers.size() - 1);
-		(target != _threadLocalId - _startIndex) ? _workers[target]->queue().try_steal(job) : nullptr;
+		(target != threadLocalId() - _startIndex) ? _workers[target]->queue().try_steal(job) : nullptr;
 		if (job)
 			return true;
 		stealAttempt++;
