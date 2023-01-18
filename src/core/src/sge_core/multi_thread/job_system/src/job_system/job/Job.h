@@ -27,7 +27,7 @@ struct JobInfo
 	void clear() { batchID = 0; batchOffset = 0; batchEnd = 0; }
 };
 
-//using JobFunction = Function<void(JobArgs&), 32>;
+//using JobFunction = Function_T<void(const JobArgs&), 32, s_kAlignment, false>;
 using JobFunction = std::function<void(JobArgs&)>;
 
 class alignas(s_kCacheLine) Job //: public NonCopyable
@@ -109,18 +109,8 @@ private:
 		using DepList = Vector<Job*, s_kLocalDepsCount>;
 
 		DepData()
-			:
-			_dependencyCount(0)
 		{
-		}
-
-		template<class FUNC>
-		void runAfterThis_for_each(FUNC func)
-		{
-			for (auto& job : _runAfterThis)
-			{
-				func(job);
-			}
+			_dependencyCount.store(0);
 		}
 
 		template<class FUNC>
@@ -136,19 +126,16 @@ private:
 			}
 		}
 
-		int	decrDependencyCount()	{ return --_dependencyCount; }
-
-		bool couldRun() const { return _dependencyCount.load() == 0; }
-		/*
-		Consider: atomic var called counter; a function logic. if counter == 0 then can perform xxx. suppose the xxx only could run once.
-		situation: thread A decrement counter then context switch to thread B and thread B decrement counter.
-		both of them will do if counter == 0 is true and perform xxx.
-		*/
+		int	decrDependencyCount()	
+		{ 
+			auto ret = --_dependencyCount; 
+			return ret;
+		}
+		bool couldRun() const		{ return _dependencyCount.load() == 0; }
 
 	private:
-		Atomic<int>	_dependencyCount = 0;
+		Atomic<int>	_dependencyCount = 0;	// this depends on others
 		DepList		_runAfterThis;
-		//DepList		_runBeforeThis;
 	};
 	struct Data : public NormalData
 	{

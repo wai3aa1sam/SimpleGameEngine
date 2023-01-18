@@ -56,7 +56,7 @@ void BoidsObject::init(Boids* p)
 void BoidsObjectManager::init(Boids* boids)
 {
 	auto& setting = boids->_setting;
-	setting.objectCount = boids->roundupToMultiple(setting.objectCount, hardwareThreadCount());
+	setting.objectCount = boids->roundupToMultiple(setting.objectCount, logicalThreadCount());
 
 	_updateData.resize(setting.objectCount);
 	_data.resize(setting.objectCount);

@@ -111,7 +111,7 @@ void Boids::start()
 	}
 
 	{
-		_setting.objectCount = roundupToMultiple(_setting.objectCount, hardwareThreadCount());
+		_setting.objectCount = roundupToMultiple(_setting.objectCount, logicalThreadCount());
 		_objs.resize(_setting.objectCount);
 		//_updateObjs.resize(_setting.objectCount);
 
@@ -178,8 +178,8 @@ void Boids::update()
 {
 	SGE_PROFILE_SCOPED;
 
-	if (!_enableUpdate)
-		return;
+	//if (!_enableUpdate)
+	//	return;
 
 	#if SGE_IS_MT_BOIDS
 	{
@@ -227,16 +227,16 @@ void Boids::update()
 
 	JobHandle setupHandle = nullptr;
 	{
-		SGE_PROFILE_SECTION("SetupJob");
-		setupHandle = _setupObjJob.delayDispatch((u32)_setting.objectCount, _setting.batchSize, nullptr);
+		//SGE_PROFILE_SECTION("SetupJob");
+		setupHandle = _setupObjJob.delayDispatch((u32)_setting.objectCount, _setting.batchSize, nullptr)->setName("SetupObjJob");
 	}
 	{
 		SGE_PROFILE_SECTION("PreceieveNearObjJob");
-		_handle = _preceieveNearObjJob.delayDispatch((u32)_setting.objectCount, _setting.batchSize, setupHandle);
+		_handle = _preceieveNearObjJob.delayDispatch((u32)_setting.objectCount, _setting.batchSize, setupHandle)->setName("PreceieveNearObjJob");
 	}
 	{
 		SGE_PROFILE_SECTION("UpdateObjJob");
-		_handle = _updateObjJob.delayDispatch((u32)_setting.objectCount, _setting.batchSize, _handle);
+		_handle = _updateObjJob.delayDispatch((u32)_setting.objectCount, _setting.batchSize, _handle)->setName("UpdateObjJob");
 	}
 
 	setupHandle->submit();

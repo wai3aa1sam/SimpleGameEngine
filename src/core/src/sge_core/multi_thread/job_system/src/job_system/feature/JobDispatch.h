@@ -246,7 +246,6 @@ public:
 				JobSystem::submit(job);
 			}
 		};
-
 		{
 			JobInfo info;
 			info.batchEnd = 1;

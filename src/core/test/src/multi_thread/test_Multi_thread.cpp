@@ -446,6 +446,10 @@ public:
 
 #else
 
+
+template<class T>
+void destroy(T* p) { SGE_LOG("destroy: {}", sizeof(T)); }
+
 class PrimeNumberSolver
 {
 public:
@@ -591,27 +595,187 @@ public:
 			{
 				SGE_PROFILE_SCOPED;
 
-				SMutexProtected<int> a;
-				//auto& data = a.scopedULock();
-				auto data = a.scopedSLock(); (void)data;
-				SGE_DUMP_VAR(*data);
-				
-				MutexProtected<int> aa;
-				auto data2 = aa.scopedULock();
-				SGE_DUMP_VAR(*data2);
-				
-				CondVarProtected<int> aaa;
-				auto data3 = aaa.scopedULock();
-				SGE_DUMP_VAR(*data3);
-
-				struct test2
 				{
-					int a = 10;
-				};
-				
-				SMtxCondVarProtected<int> aaaa;
-				auto data4 = aaaa.scopedSLock();
-				SGE_DUMP_VAR(*data4);
+					SMutexProtected<int> a;
+					//auto& data = a.scopedULock();
+					auto data = a.scopedSLock(); (void)data;
+					SGE_DUMP_VAR(*data);
+
+					MutexProtected<int> aa;
+					auto data2 = aa.scopedULock();
+					SGE_DUMP_VAR(*data2);
+
+					CondVarProtected<int> aaa;
+					auto data3 = aaa.scopedULock();
+					SGE_DUMP_VAR(*data3);
+
+					struct test2
+					{
+						int a = 10;
+					};
+
+					SMtxCondVarProtected<int> aaaa;
+					auto data4 = aaaa.scopedSLock();
+					SGE_DUMP_VAR(*data4);
+
+				}
+				{
+
+					UPtr<int> up2;
+					using Function = Function_T<void(int, float), 1, s_kAlignment, true>;
+					//using Function = std::function<void(int, float)>;
+
+					struct Test
+					{
+						void test(int a, float b)
+						{
+							SGE_LOG("Test::test(int, float): {}, {}", a, b);
+						}
+
+						size_t aaa = 100;
+					};
+
+					struct Test2
+					{
+						static Function create()
+						{
+							Function test_func;
+							static Test test;
+							Test* p =  &test;
+							{
+								size_t aabb = 12;
+								size_t aabb2 = 120;
+
+								auto task = [p, aabb, aabb2](int a, float b) { p->test(a, b); };
+								test_func = task;
+
+								size_t aabb3 = 10; (void)aabb3;
+
+							}
+							{
+								size_t aabb = 13;
+								size_t aabb2 = 130;
+
+								auto task = [p, aabb, aabb2](int a, float b) { p->test(a, b); };
+								test_func = task;
+
+								size_t aabb3 = 10; (void)aabb3;
+
+							}
+							{
+								size_t aabb = 14;
+								size_t aabb2 = 140;
+
+								auto task = [p, aabb, aabb2](int a, float b) { p->test(a, b); };
+								test_func = task;
+
+								size_t aabb3 = 10; (void)aabb3;
+
+							}
+							return test_func;
+						}
+					};
+
+					SGE_DUMP_VAR(sizeof(Function));
+
+					Function func = [&](int a, float b)
+					{
+						SGE_DUMP_VAR(sizeof(up2));
+
+					};
+					func = [&](int a, float b)
+					{
+						SGE_DUMP_VAR(sizeof(up2));
+
+					};
+					func(0, 10);
+
+					SGE_DUMP_VAR(sizeof(func));
+
+					Function func2 = func;
+					Function func3;
+					func3 = func2;
+
+					// cannot call move ctor
+					Function func4 = Function(
+						[&](int a, float b)
+						{
+							SGE_DUMP_VAR(sizeof(up2));
+
+						});
+
+					Function func5 = std::move(func4);
+
+					//static_assert(IsFunction<decltype()>, "Function_T: Type is not a function!");
+
+
+					SGE_DUMP_VAR(sizeof(func));
+					
+
+					SGE_DUMP_VAR(sizeof(func));
+
+					
+
+					Function test_func;
+					Test test_struct;
+					{
+						{
+							size_t aabb = 10;
+							size_t aabb2 = 100;
+
+							auto task = [&test_struct, aabb, aabb2](int a, float b) { test_struct.test(a, b); };
+							test_func = task;
+							SGE_DUMP_VAR(sizeof(task));
+
+							Test1 test1		= task;
+							Test1V test1V	= task;
+
+							SGE_DUMP_VAR(sizeof(test1));
+							SGE_DUMP_VAR(sizeof(test1V));
+
+
+							size_t aabb3 = 10; (void)aabb3;
+							test_func = Test2::create();
+							//Function test_func2 = Test2::create();
+							size_t aabb4 = 10; (void)aabb4;
+						}
+
+						Function func6 = [&test_struct](int a, float b) { test_struct.test(a, b); };
+						func6(5, 10.0f);
+						Function func7 = func6;
+						Function func8;
+						if (func6)
+						{
+							SGE_LOG("if func6");
+						}
+						if (!func8)
+						{
+							SGE_LOG("if func8");
+						}
+						if (func8 == nullptr)
+						{
+							SGE_LOG("if func8");
+						}
+					}
+
+					{
+						std::function func6 = [&test_struct](int a, float b) { test_struct.test(a, b); };
+						func6(5, 10.0f);
+						std::function func7 = func6;
+						std::function<void(void)> func8;
+
+						if (func8)
+						{
+							SGE_LOG("if std::func8");
+						}
+					}
+
+					//test::Function_T<void(int, float)> task = func;
+					//test::Function<void(int, float)> task2;
+					//task2 = func;
+					
+
+				}
 				
 				auto handle = solverJob_ParFor.dispatch(s_kLoopCount, s_kBatchSize);
 				//auto handle = solverJob_For.dispatch(s_kLoopCount);
@@ -650,7 +814,7 @@ public:
 
 	void main()
 	{
-		SGE_DUMP_VAR(hardwareThreadCount());
+		SGE_DUMP_VAR(logicalThreadCount());
 		atomicLog("start thread pool");
 		{
 			#if SGE_IS_JOB_SYSTEM_DISPATCH_DEPEND
