@@ -18,9 +18,12 @@ public:
 	static Renderer*	instance() { return s_instance; }
 
 	enum class ApiType {
-		None,
+		None = 0,
 		DX11,
+		DX12,
 		OpenGL,
+		Vulkan,
+		Metal,
 	};
 
 	struct CreateDesc {

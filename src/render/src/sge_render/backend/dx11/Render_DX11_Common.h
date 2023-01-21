@@ -1,4 +1,5 @@
 #pragma once
+#include <sge_render-pch.h>
 
 #if SGE_RENDER_HAS_DX11
 

@@ -11,6 +11,92 @@
 
 namespace sge {
 
+class Include_DX11 : public DX11_ID3DInclude
+{
+	using Util = DX11Util;
+	using DataType = RenderDataType;
+public:
+	Include_DX11(CompileInfo& cInfo)
+		:
+		_shaderInclude(cInfo)
+	{
+	}
+
+	HRESULT Open(D3D_INCLUDE_TYPE IncludeType,
+		LPCSTR           pFileName,
+		LPCVOID          pParentData,
+		LPCVOID          *ppData,
+		UINT             *pBytes
+	)
+	{
+		bool is_path_valid = _shaderInclude.resolve(pFileName);
+
+#if 0
+		Vector<String, 12> additionDeps;
+		additionDeps.push_back("../../built-in");
+		additionDeps.push_back("../../built-in/shader");
+
+#if 1
+		TempString shaderPath;
+		bool is_path_valid = Directory::exists(shaderPath);
+		if (!is_path_valid)
+		{
+			for (auto& dep : additionDeps)
+			{
+				shaderPath.clear();
+				FmtTo(shaderPath, "{}/{}", dep, pFileName);
+				is_path_valid = FilePath::exists(shaderPath);
+				if (is_path_valid)
+					break;
+			}
+		}
+		else
+			shaderPath = pFileName;
+#else
+		TempString shaderPath;
+		shaderPath.assign(pFileName);
+#endif // 0
+#endif // 0
+
+		try
+		{
+			if (!is_path_valid)
+			{
+				SGE_LOG("{}", FilePath::realpath(pFileName));
+				throw SGE_ERROR("invald path");
+			}
+			StrView path = _shaderInclude.lastFile();
+			File::readFile(path, _data);
+			*ppData = _data.data();
+			*pBytes = Util::castUINT(_data.size());
+		}
+		catch (...)
+		{
+			*ppData = nullptr;
+			*pBytes = 0;
+			return E_FAIL;
+		}
+
+		return S_OK;
+	}
+
+	HRESULT Close(LPCVOID pData)
+	{
+		_data.clear();
+		return S_OK;
+	}
+
+private:
+	Vector<u8> _data;
+	ShaderInclude _shaderInclude;
+};
+
+ShaderCompiler_DX11::ShaderCompiler_DX11(CompileInfo& cInfo_)
+	:
+	_cInfo(&cInfo_)
+{
+}
+
 void ShaderCompiler_DX11::compile(StrView outPath, ShaderStageMask shaderStage, StrView srcFilename, StrView entryFunc) {
 	TempStringA entryPoint = entryFunc;
 
@@ -32,14 +118,19 @@ void ShaderCompiler_DX11::compile(StrView outPath, ShaderStageMask shaderStage, 
 
 	auto profile = Util::getDxStageProfile(shaderStage);
 
+	_cInfo->comileRequest.include.files.clear();	// avoid duplicated when compile all
+	Include_DX11 include_dx11(*_cInfo);
+	Vector<D3D_SHADER_MACRO> marco_dx11;
+	_init_marco(marco_dx11);
+
 	auto hr = D3DCompile2(
-				hlsl.data(), hlsl.size(), memmap.filename().c_str(),
-				nullptr, nullptr,
-				entryPoint.c_str(),
-				profile, 
-				flags1, flags2, 0, nullptr, 0,
-				bytecode.ptrForInit(),
-				errorMsg.ptrForInit());
+		hlsl.data(), hlsl.size(), memmap.filename().c_str(),
+		marco_dx11.data(), &include_dx11,
+		entryPoint.c_str(),
+		profile,
+		flags1, flags2, 0, nullptr, 0,
+		bytecode.ptrForInit(),
+		errorMsg.ptrForInit());
 
 	if (FAILED(hr)) {
 		throw SGE_ERROR("HRESULT={}\n Error Message: {}", hr, Util::toStrView(errorMsg));
@@ -50,7 +141,7 @@ void ShaderCompiler_DX11::compile(StrView outPath, ShaderStageMask shaderStage, 
 	auto bytecodeSpan = Util::toSpan(bytecode);
 
 	auto outFilename = Fmt("{}/{}.bin", outPath, profile);
-	File::writeFileIfChanged(outFilename, bytecodeSpan, false);
+	File::writeFile(outFilename, bytecodeSpan, false);
 
 	_reflect(outFilename, bytecodeSpan, shaderStage, profile);
 }
@@ -66,13 +157,13 @@ void ShaderCompiler_DX11::_reflect(StrView outFilename, ByteSpan bytecode, Shade
 
 	ShaderStageInfo outInfo;
 	outInfo.profile = profile;
-	outInfo.stage   = stage;
+	outInfo.stage = stage;
 
 	{
-		_reflect_inputs			(outInfo, reflect, desc);
-		_reflect_constBuffers	(outInfo, reflect, desc);
-		_reflect_textures		(outInfo, reflect, desc);
-		_reflect_samplers		(outInfo, reflect, desc);
+		_reflect_inputs(outInfo, reflect, desc);
+		_reflect_constBuffers(outInfo, reflect, desc);
+		_reflect_textures(outInfo, reflect, desc);
+		_reflect_samplers(outInfo, reflect, desc);
 	}
 
 	{
@@ -86,7 +177,7 @@ void ShaderCompiler_DX11::_reflect_inputs(ShaderStageInfo& outInfo, ID3D11Shader
 
 	outInfo.inputs.reserve(desc.InputParameters);
 
-	for (UINT i=0; i<desc.InputParameters; i++) {
+	for (UINT i = 0; i < desc.InputParameters; i++) {
 		auto& dst = outInfo.inputs.emplace_back();
 
 		D3D11_SIGNATURE_PARAMETER_DESC paramDesc;
@@ -106,10 +197,10 @@ void ShaderCompiler_DX11::_reflect_inputs(ShaderStageInfo& outInfo, ID3D11Shader
 		TempString dataType;
 
 		switch (paramDesc.ComponentType) {
-			case D3D_REGISTER_COMPONENT_UINT32:		dataType.append("UInt8");	break;
-			case D3D_REGISTER_COMPONENT_SINT32:		dataType.append("Int32");	break;
-			case D3D_REGISTER_COMPONENT_FLOAT32:	dataType.append("Float32");	break;
-			default: throw SGE_ERROR("unsupported component type {}", paramDesc.ComponentType);
+		case D3D_REGISTER_COMPONENT_UINT32:		dataType.append("UInt8");	break;
+		case D3D_REGISTER_COMPONENT_SINT32:		dataType.append("Int32");	break;
+		case D3D_REGISTER_COMPONENT_FLOAT32:	dataType.append("Float32");	break;
+		default: throw SGE_ERROR("unsupported component type {}", paramDesc.ComponentType);
 		}
 
 		auto componentCount = BitUtil::count1(paramDesc.Mask);
@@ -132,7 +223,7 @@ void ShaderCompiler_DX11::_reflect_constBuffers(ShaderStageInfo& outInfo, ID3D11
 
 	outInfo.constBuffers.reserve(desc.BoundResources);
 
-	for (UINT i=0; i<desc.BoundResources; i++) {
+	for (UINT i = 0; i < desc.BoundResources; i++) {
 		D3D11_SHADER_INPUT_BIND_DESC resDesc;
 		hr = reflect->GetResourceBindingDesc(i, &resDesc);
 		Util::throwIfError(hr);
@@ -146,14 +237,14 @@ void ShaderCompiler_DX11::_reflect_constBuffers(ShaderStageInfo& outInfo, ID3D11
 		hr = cb->GetDesc(&bufDesc);
 		Util::throwIfError(hr);
 
-		outCB.name		= bufDesc.Name;
-		outCB.bindPoint	= static_cast<i16>(resDesc.BindPoint);
-		outCB.bindCount	= static_cast<i16>(resDesc.BindCount);
-		outCB.dataSize	= bufDesc.Size;
+		outCB.name = bufDesc.Name;
+		outCB.bindPoint = static_cast<i16>(resDesc.BindPoint);
+		outCB.bindCount = static_cast<i16>(resDesc.BindCount);
+		outCB.dataSize = bufDesc.Size;
 
 		{
 			outCB.variables.reserve(bufDesc.Variables);
-			for (UINT j=0; j<bufDesc.Variables; j++) {
+			for (UINT j = 0; j < bufDesc.Variables; j++) {
 				auto cbv = cb->GetVariableByIndex(j);
 				D3D11_SHADER_VARIABLE_DESC varDesc;
 				hr = cbv->GetDesc(&varDesc);
@@ -171,29 +262,33 @@ void ShaderCompiler_DX11::_reflect_constBuffers(ShaderStageInfo& outInfo, ID3D11
 				//------------------------------
 				TempString dataType;
 				switch (varType.Type) {
-					case D3D_SVT_BOOL:	dataType.append("Bool");	break;
-					case D3D_SVT_INT:	dataType.append("Int32");	break;
-					case D3D_SVT_UINT:	dataType.append("UInt32");	break;
-					case D3D_SVT_UINT8:	dataType.append("UInt8");	break;
-					case D3D_SVT_FLOAT: dataType.append("Float32");	break;
-					case D3D_SVT_DOUBLE:dataType.append("Float64");	break;
-					default: throw SGE_ERROR("unsupported type {}", varType.Type);
+				case D3D_SVT_BOOL:	dataType.append("Bool");	break;
+				case D3D_SVT_INT:	dataType.append("Int32");	break;
+				case D3D_SVT_UINT:	dataType.append("UInt32");	break;
+				case D3D_SVT_UINT8:	dataType.append("UInt8");	break;
+				case D3D_SVT_FLOAT: dataType.append("Float32");	break;
+				case D3D_SVT_DOUBLE:dataType.append("Float64");	break;
+				default: throw SGE_ERROR("unsupported type {}", varType.Type);
 				}
 
 				switch (varType.Class) {
-					case D3D_SVC_SCALAR: break;
-					case D3D_SVC_VECTOR:
-						FmtTo(dataType, "x{}",	varType.Columns);
-						break;
-					case D3D_SVC_MATRIX_COLUMNS:
-						FmtTo(dataType, "_{}x{}", varType.Rows, varType.Columns); 
-						outVar.rowMajor = false;
-						break;
-					case D3D_SVC_MATRIX_ROWS:
-						FmtTo(dataType, "_{}x{}", varType.Rows, varType.Columns); 
-						outVar.rowMajor = true;
-						break;
-					default: throw SGE_ERROR("unsupported Class {}", varType.Class);
+				case D3D_SVC_SCALAR: break;
+				case D3D_SVC_VECTOR:
+				{
+
+					FmtTo(dataType, "x{}",	varType.Columns);
+				}break;
+				case D3D_SVC_MATRIX_COLUMNS:
+				{
+					FmtTo(dataType, "_{}x{}", varType.Rows, varType.Columns); 
+					outVar.rowMajor = false;
+				}break;
+				case D3D_SVC_MATRIX_ROWS:
+				{
+					FmtTo(dataType, "_{}x{}", varType.Rows, varType.Columns); 
+					outVar.rowMajor = true;
+				}break;
+				default: throw SGE_ERROR("unsupported Class {}", varType.Class);
 				}
 
 				if (!enumTryParse(outVar.dataType, dataType)) {
@@ -213,7 +308,7 @@ void ShaderCompiler_DX11::_reflect_textures(ShaderStageInfo& outInfo, ID3D11Shad
 	HRESULT hr;
 
 	outInfo.textures.reserve(desc.BoundResources);
-	for (UINT i=0; i<desc.BoundResources; i++) {
+	for (UINT i = 0; i < desc.BoundResources; i++) {
 		D3D11_SHADER_INPUT_BIND_DESC resDesc;
 		hr = reflect->GetResourceBindingDesc(i, &resDesc);
 		Util::throwIfError(hr);
@@ -221,21 +316,21 @@ void ShaderCompiler_DX11::_reflect_textures(ShaderStageInfo& outInfo, ID3D11Shad
 		if (resDesc.Type != D3D_SIT_TEXTURE) continue;
 
 		auto& outTex = outInfo.textures.emplace_back();
-		outTex.name			= resDesc.Name;
-		outTex.bindPoint	= static_cast<i16>(resDesc.BindPoint);
-		outTex.bindCount	= static_cast<i16>(resDesc.BindCount);
+		outTex.name = resDesc.Name;
+		outTex.bindPoint = static_cast<i16>(resDesc.BindPoint);
+		outTex.bindCount = static_cast<i16>(resDesc.BindCount);
 
 		switch (resDesc.Dimension) {
-			case D3D_SRV_DIMENSION_TEXTURE1D:		outTex.dataType = DataType::Texture1D;   break;
-			case D3D_SRV_DIMENSION_TEXTURE2D:		outTex.dataType = DataType::Texture2D;   break;
-			case D3D_SRV_DIMENSION_TEXTURE3D:		outTex.dataType = DataType::Texture3D;   break;
-			case D3D_SRV_DIMENSION_TEXTURECUBE:		outTex.dataType = DataType::TextureCube; break;
-		//----
-			case D3D_SRV_DIMENSION_TEXTURE1DARRAY:	outTex.dataType = DataType::Texture1DArray;   break;
-			case D3D_SRV_DIMENSION_TEXTURE2DARRAY:	outTex.dataType = DataType::Texture2DArray;   break;
-			case D3D_SRV_DIMENSION_TEXTURECUBEARRAY:outTex.dataType = DataType::TextureCubeArray; break;
-		//----
-			default: throw SGE_ERROR("unsupported texture dimension {}", resDesc.Dimension);
+		case D3D_SRV_DIMENSION_TEXTURE1D:		outTex.dataType = DataType::Texture1D;   break;
+		case D3D_SRV_DIMENSION_TEXTURE2D:		outTex.dataType = DataType::Texture2D;   break;
+		case D3D_SRV_DIMENSION_TEXTURE3D:		outTex.dataType = DataType::Texture3D;   break;
+		case D3D_SRV_DIMENSION_TEXTURECUBE:		outTex.dataType = DataType::TextureCube; break;
+			//----
+		case D3D_SRV_DIMENSION_TEXTURE1DARRAY:	outTex.dataType = DataType::Texture1DArray;   break;
+		case D3D_SRV_DIMENSION_TEXTURE2DARRAY:	outTex.dataType = DataType::Texture2DArray;   break;
+		case D3D_SRV_DIMENSION_TEXTURECUBEARRAY:outTex.dataType = DataType::TextureCubeArray; break;
+			//----
+		default: throw SGE_ERROR("unsupported texture dimension {}", resDesc.Dimension);
 		}
 	}
 }
@@ -243,7 +338,7 @@ void ShaderCompiler_DX11::_reflect_textures(ShaderStageInfo& outInfo, ID3D11Shad
 void ShaderCompiler_DX11::_reflect_samplers(ShaderStageInfo& outInfo, ID3D11ShaderReflection* reflect, D3D11_SHADER_DESC& desc) {
 	HRESULT hr;
 	outInfo.samplers.reserve(desc.BoundResources);
-	for (UINT i=0; i<desc.BoundResources; i++) {
+	for (UINT i = 0; i < desc.BoundResources; i++) {
 		D3D11_SHADER_INPUT_BIND_DESC resDesc;
 		hr = reflect->GetResourceBindingDesc(i, &resDesc);
 		Util::throwIfError(hr);
@@ -251,11 +346,29 @@ void ShaderCompiler_DX11::_reflect_samplers(ShaderStageInfo& outInfo, ID3D11Shad
 		if (resDesc.Type != D3D_SIT_SAMPLER) continue;
 
 		auto& outSampler = outInfo.samplers.emplace_back();
-		outSampler.name			= resDesc.Name;
-		outSampler.bindPoint	= static_cast<i16>(resDesc.BindPoint);
-		outSampler.bindCount	= static_cast<i16>(resDesc.BindCount);
+		outSampler.name = resDesc.Name;
+		outSampler.bindPoint = static_cast<i16>(resDesc.BindPoint);
+		outSampler.bindCount = static_cast<i16>(resDesc.BindCount);
 	}
 
 }
+
+void ShaderCompiler_DX11::_init_marco(Vector<DX11_D3DShaderMarco>& sh_mar)
+{
+	auto& req = _cInfo->comileRequest;
+	auto& marcos = req.marcos;
+
+	sh_mar.reserve(marcos.size() + 1);
+	for (auto& m : marcos)
+	{
+		auto& back		= sh_mar.emplace_back();
+		back.Name		= m.name.c_str();
+		back.Definition = m.value.c_str();
+	}
+	auto& back		= sh_mar.emplace_back();
+	back.Name		= nullptr;
+	back.Definition = nullptr;
+}
+
 
 }

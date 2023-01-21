@@ -1,0 +1,78 @@
+.PHONY: all clean
+
+# -include xxxx would override same name variable and don't follow order
+# file path should not use ../ or relative, since it will base on the includer
+# include would append MAKEFILE_LIST, firstword will be current, lastword would be just included file
+
+# CURRENT_MAKEFILE:=$(lastword $(MAKEFILE_LIST))
+# CUR_DIR  := $(dir $(CURRENT_MAKEFILE))
+# CUR_ROOT := $(realpath $(CUR_DIR))
+
+include makeFile.mkvar
+
+SGE_ROOT 			:= 
+PROJECT_ROOT 		:=
+SHADER_FILE_PATH 	:=
+
+BUILT_IN_ROOT			:= $(SGE_ROOT)/$(BUILT_IN_PATH)
+BUILT_IN_SHADER_ROOT	:= $(SGE_ROOT)/$(BUILT_IN_SHADER_PATH)
+
+SHADER_FILE_ROOT 	:= $(PROJECT_ROOT)/$(SHADER_FILE_PATH)
+SHADER_BIN_ROOT		:= $(PROJECT_ROOT)/$(IMPORTED_PATH)/$(SHADER_FILE_PATH)
+SHADER_MAKE_ROOT	:= $(SHADER_BIN_ROOT)/$(SGE_MAKEFILE)
+
+SGE_SHADER_COMPILER_PATH:=build/SimpleGameEngine-x64-windows/src/render/shader_compiler/$(BUILD_CONFIG)/sge_shader_compiler.exe
+
+sgeShaderCompiler:=$(SGE_ROOT)/$(SGE_SHADER_COMPILER_PATH)
+glslc:=glslc
+
+export SGE_ROOT PROJECT_ROOT SHADER_FILE_PATH \
+BUILT_IN_ROOT BUILT_IN_SHADER_ROOT \
+SHADER_FILE_ROOT SHADER_BIN_ROOT SHADER_MAKE_ROOT \
+SGE_SHADER_COMPILER_PATH \
+sgeShaderCompiler glslc \
+#
+
+ifneq ("$(wildcard $(SHADER_MAKE_ROOT))", "")
+# if exist
+
+all: project_compile_shader_make
+project_compile_shader_make: $(SHADER_FILE_ROOT) $(SHADER_MAKE_ROOT)
+	@echo === project_compile_shader_make
+	@echo --- input shader --- $(SHADER_FILE_PATH)
+	$(SGE_MAKE) -C $(SHADER_BIN_ROOT)
+#@echo SHADER_MAKE_ROOT --- $(SHADER_MAKE_ROOT)
+
+else
+# if not exist
+
+all: $(SHADER_MAKE_ROOT)
+$(SHADER_MAKE_ROOT): $(SHADER_FILE_ROOT)
+	@echo === sgeShaderCompiler
+	@echo --- input shader --- $(SHADER_FILE_PATH)
+	$(sgeShaderCompiler) -cwd="$(PROJECT_ROOT)" -file="$(SHADER_FILE_PATH)" -I="$(BUILT_IN_ROOT)" -I="$(BUILT_IN_SHADER_ROOT)"
+	$(SGE_MAKE) -C $(SHADER_BIN_ROOT)
+#@echo SHADER_MAKE_ROOT --- $(SHADER_MAKE_ROOT)
+
+endif
+
+TEST_PROJECT_ROOT_COMPILE_SHADER_MAKE := 0
+ifeq ($(TEST_PROJECT_ROOT_COMPILE_SHADER_MAKE), 1)
+
+all: _PROJECT_ROOT_COMPILE_SHADER_MAKE
+
+all: test_print
+test_print:
+	@echo SHADER_MAKE_ROOT exist
+	@echo ===
+
+_PROJECT_ROOT_COMPILE_SHADER_MAKE:
+	@echo --- _PROJECT_ROOT_COMPILE_SHADER_MAKE
+	@echo DX11 --- $(DX11)
+	@echo SGE_ROOT --- $(SGE_ROOT)
+	@echo PROJECT_ROOT --- $(PROJECT_ROOT)
+	@echo SHADER_BIN_ROOT --- $(SHADER_BIN_ROOT)
+
+	@echo ---
+	$(SGE_MAKE) -C $(SHADER_BIN_ROOT)
+endif

@@ -108,10 +108,12 @@ bool Lexer::_nextToken() {
 		trimSpaces();
 		if (!_ch) return false;
 
+		#if 0
 		if (_ch == '#') {
 			_parseCommentSingleLine();
 			continue;
 		}
+		#endif // 0
 
 		if (_ch == '_' || isAlpha(_ch)) {
 			return _parseIdentifier();

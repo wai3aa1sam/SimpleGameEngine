@@ -13,6 +13,13 @@ enum class ShaderStageMask {
 	Pixel	= 1 << 1,
 };
 
+inline bool parseShaderStageMask(ShaderStageMask& outValue, StrView str) {
+
+	if (str == "vs_5_0") { outValue = ShaderStageMask::Vertex;	return true; }
+	if (str == "ps_5_0") { outValue = ShaderStageMask::Pixel;	return true; }
+	return false;
+}
+
 #define ShaderPropType_ENUM_LIST(E) \
 	E(None,) \
 	E(Int,) \

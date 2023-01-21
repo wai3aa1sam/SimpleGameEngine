@@ -1,3 +1,4 @@
+#include <sge_core-pch.h>
 #include "FilePath.h"
 #include "Directory.h"
 #include <sge_core/string/StringUtil.h>
@@ -102,5 +103,42 @@ String FilePath::realpath(StrView path) {
 
 	return outStr;
 }
+
+#if 0
+#pragma mark --- Path_Impl ---
+#endif // 0
+#if 1
+
+Path::Status Path::status(const StrView& path_)
+{
+	Status status = Status::NotExist;
+
+	if (Directory::isDirectory(path_))
+	{
+		status = Status::Directory;
+	}
+	else if (Directory::isFile(path_))
+	{
+		status = Status::Directory;
+	}
+	else if (Directory::isExist(path_))
+	{
+		status = Status::Exist;
+	}
+	return status;
+}
+
+bool Path::isFile(const StrView& path_)
+{
+	return Directory::isFile(path_);
+}
+
+bool Path::isDirectory(const StrView& path_)
+{
+	return Directory::isDirectory(path_);
+}
+
+#endif // 0
+
 
 }

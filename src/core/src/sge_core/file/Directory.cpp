@@ -51,6 +51,31 @@ bool Directory::exists(StrView path) {
 	return (dwAttrib != INVALID_FILE_ATTRIBUTES && (dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
 }
 
+bool Directory::isExist(StrView path_)
+{
+	TempStringW pathW;
+	UtfUtil::convert(pathW, path_);
+
+	DWORD dwAttrib = ::GetFileAttributes(pathW.c_str());
+	return (dwAttrib != INVALID_FILE_ATTRIBUTES);
+}
+
+bool Directory::isDirectory(StrView path_)
+{
+	return exists(path_);
+}
+
+bool Directory::isFile(StrView path_)
+{
+	TempStringW pathW;
+	UtfUtil::convert(pathW, path_);
+
+	DWORD dwAttrib = ::GetFileAttributes(pathW.c_str());
+	return (dwAttrib != INVALID_FILE_ATTRIBUTES && 
+		!(dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
+}
+
+
 #else
 
 #if 0
