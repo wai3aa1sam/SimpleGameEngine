@@ -11,6 +11,9 @@ public:
 	using Util = DX11Util;
 
 	Shader_DX11(StrView filename);
+	Shader_DX11(StrView filename, const ShaderPermutations& permuts);
+
+	virtual void onReset() override;
 
 	struct MyPass;
 
@@ -42,6 +45,9 @@ public:
 		MyVertexStage		_myVertexStage;
 		MyPixelStage		_myPixelStage;
 	};
+
+private:
+	void _onReset(StrView apiPath);
 };
 
 }

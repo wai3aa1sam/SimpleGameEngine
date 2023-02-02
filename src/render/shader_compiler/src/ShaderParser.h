@@ -18,9 +18,8 @@ private:
 	void _readProperty();
 	void _readPass();
 
-	void _readInclude();
-	void _readMarco();
-	void _readValue(String& str);
+	void _readPermutation();
+	void _readPermutation_Value();
 
 	void _readBlendFunc(RenderState::BlendFunc& v);
 

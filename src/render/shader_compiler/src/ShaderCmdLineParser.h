@@ -124,12 +124,6 @@ private:
 		return StrView(s, _cmd.end() - s);
 	}
 
-	#if 0
-	void nextToken()				{ _lexer.nextToken(); }
-	Lexer::Token& token()			{ _lexer.getToken(); }
-	void expectOperator(StrView sv) { _lexer.expectOperator(sv); }
-	#endif // 0
-
 	Info&		info()	{ return *_info; }
 	Request&	req()	{ return _info->comileRequest; }
 

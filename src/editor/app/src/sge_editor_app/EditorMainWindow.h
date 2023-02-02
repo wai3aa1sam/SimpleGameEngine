@@ -9,6 +9,8 @@ public:
 	virtual void onCreate(CreateDesc& desc) override;
 	virtual void onCloseButton() override;
 	virtual void onUIMouseEvent(UIMouseEvent& ev) override;
+
+	virtual void onActive(bool isActive) override;
 	
 	RenderContext& renderContext() { return *_renderContext; }
 

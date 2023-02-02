@@ -57,6 +57,7 @@ void EditorLayer_Base::render(RenderContext& rdCtx_, RenderData& rdData_)
 
 	auto rdScope = RenderScope::ctor(rdCtx, rdReq, rdData);
 	onRender(rdCtx, rdData);
+	onRenderGUI(rdCtx, rdData);
 }
 
 #endif
@@ -91,9 +92,9 @@ void EditorLayer::create()
 	}
 
 	{
-		auto lineShader = renderer->createShader("Assets/Shaders/line.shader");
+		_lineShader = renderer->createShader("Assets/Shaders/line.shader");
 		_lineMaterial = renderer->createMaterial();
-		_lineMaterial->setShader(lineShader);
+		_lineMaterial->setShader(_lineShader);
 	}
 
 	{
@@ -178,10 +179,43 @@ void EditorLayer::onRender(RenderContext& rdCtx_, RenderData& rdData_)
 	cBoids->_boids.render(rdReq);
 
 #endif // 0
+}
+
+void EditorLayer::onRenderGUI(RenderContext& rdCtx_, RenderData& rdData_)
+{
+	SGE_PROFILE_SCOPED;
+
+	auto& rdCtx = rdCtx_; SGE_UNUSED(rdCtx);
+	auto& rdReq = getRenderRequest(); SGE_UNUSED(rdReq);
+	auto& rdData = rdData_; SGE_UNUSED(rdData);
+
+	{
+		ImGui::Begin("Permutation Test");
+
+		static bool isCheckBox = false;
+		static bool isENABLE_feature = false;
+		static bool isClearPermutation = false;
+		ImGui::Checkbox("ENABLE_feature", &isCheckBox);
+		ImGui::Checkbox("ENABLE_feature_true", &isENABLE_feature);
+		ImGui::Checkbox("isClearPermutation", &isClearPermutation);
+
+		if (isCheckBox)
+		{
+			if (isENABLE_feature)
+				_lineMaterial->setPermutation("ENABLE_feature", "1");
+			else
+				_lineMaterial->setPermutation("ENABLE_feature", "0");
+		}
+		if (isClearPermutation)
+		{
+			_lineMaterial->clearPermutation();
+		}
+		
+		ImGui::End();
+	}
 
 	_hierarchyWindow.draw(rdReq, _scene);
 	_inspectorWindow.draw(rdReq, _scene);
-	
 	//ImGui::ShowDemoWindow(nullptr);
 }
 

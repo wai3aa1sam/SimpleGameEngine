@@ -17,11 +17,45 @@ void Directory::create(StrView path) {
 	_create(path);
 }
 
+void Directory::removeIfEmpty(StrView path)
+{
+	std::filesystem::remove(path.data());
+}
+
+void Directory::removeAll(StrView path)
+{
+	std::filesystem::remove_all(path.data());
+}
 
 #if SGE_OS_WINDOWS
 #if 0
 #pragma mark ================= Windows ====================
 #endif
+
+#if 0
+
+// references: 
+// https://stackoverflow.com/questions/74326687/delete-a-directory-and-all-of-its-files-using-windows-shell
+void Directory::remove(StrView path)
+{
+	TempStringW pathW;
+	UtfUtil::convert(pathW, path);
+
+	SHFILEOPSTRUCT SHFileOp, SHDirOp;
+	ZeroMemory(&SHDirOp, sizeof(SHFILEOPSTRUCT));
+	SHDirOp.hwnd = NULL;
+	SHDirOp.wFunc = FO_DELETE;
+	SHDirOp.pFrom = pathW.c_str();
+	SHDirOp.pTo = NULL;
+	SHDirOp.fFlags =
+		FOF_MULTIDESTFILES /* | FOF_NOCONFIRMMKDIR | FOF_NOCONFIRMATION */;
+
+	//The Copying Function
+	SHFileOperation(&SHDirOp);
+}
+
+#endif // 0
+
 
 void Directory::setCurrent(StrView dir) {
 	TempStringW tmp = UtfUtil::toStringW(dir);

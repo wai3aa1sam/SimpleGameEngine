@@ -22,49 +22,15 @@ class ShaderGNUMake : public GNUMakeGenerator
 public:
 	using ApiType = Renderer::ApiType;
 
-	struct Names
-	{
-		const char* buildDX11		= "BUILD_DX11";
-		const char* buildDX12		= "BUILD_DX12";
-		const char* buildOpengl		= "BUILD_OPENGL";
-		const char* buildSpirv		= "BUILD_SPIRV";
-		const char* buildMetal		= "BUILD_METAL";
-
-		const char* dx11			= "DX11";
-		const char* dx12			= "DX12";
-		const char* opengl			= "OPENGL";
-		const char* spirv			= "SPIRV";
-		const char* metal			= "METAL";
-
-		const char* currentMakeFile		= "CURRENT_MAKEFILE";
-		const char* sgeRoot				= "SGE_ROOT";
-		const char* projectRoot			= "PROJECT_ROOT";
-		const char* shaderCompilerPath  = "SGE_SHADER_COMPILER_PATH";
-
-		const char* shaderCompiler		= "sgeShaderCompiler";
-		const char* glslc				= "glslc";
-
-		const char* shaderFilePath		= "SHADER_FILE_PATH";
-		const char* shaderFileRoot		= "SHADER_FILE_ROOT";
-		const char* shaderBinRoot		= "SHADER_BIN_ROOT";
-
-		const char* builtInPath			= "BUILT_IN_PATH";
-		const char* builtInRoot			= "BUILT_IN_ROOT";
-		const char* builtInShaderPath	= "BUILT_IN_SHADER_PATH";
-		const char* builtInShaderRoot	= "BUILT_IN_SHADER_ROOT";
-
-		const char* nts_var(const char* name) { Base::var(tmp, name); return tmp.c_str(); }
-	private:
-		TempString tmp;
-	};
-
-	static Names s_names;
+	bool _isGeneratedSgeShaderCompilerMake = false;
 
 	ShaderGNUMake(const CompileInfo& cInfo)
 		: Base(_request)
 	{
 		_request.compileInfo = &cInfo;
 	}
+
+	TempString nts_var(const char* name) { TempString tmp; Base::var(tmp, name); return tmp.c_str(); }
 
 	static void generate(const CompileInfo& cInfo_)
 	{
@@ -87,21 +53,6 @@ public:
 		make._init_build_target(request, ApiType::Vulkan);	make.nextLine();
 
 		make.flush(tmp);
-	}
-
-	static const char* getBuildApiPath(ApiType type)
-	{
-		using SRC = ApiType;
-		switch (type)
-		{
-		case SRC::DX11:		{ return "dx11"; }
-					  //case SRC::DX12:		{ return ""; }
-					  //case SRC::OpenGL:	{ return ""; }
-		case SRC::Vulkan:	{ return "spirv"; }
-						//case SRC::Metal:	{ return ""; }
-		default:
-			throw SGE_ERROR("unknow api type");
-		}
 	}
 
 private:
@@ -190,6 +141,9 @@ private:
 
 		const char* compilerName = getCompilerName(apiType);
 
+		if (apiType == ApiType::DX11 && _isGeneratedSgeShaderCompilerMake)
+			return;
+
 		generateDepdency(request, buildReq);
 
 		tmp.clear();
@@ -205,9 +159,9 @@ private:
 			{ tmp += ".dep";  includePath(tmp); }
 			{
 				auto target1 = Target::ctor(request, binName);
-				write(" "); write(names.nts_var(names.currentMakeFile));
-				write(" "); write(names.nts_var(names.shaderFileRoot));
-				if (compilerName) { write(" "); write(names.nts_var(compilerName)); }
+				write(" "); write(nts_var(names.currentMakeFile));
+				write(" "); write(nts_var(names.shaderFileRoot));
+				if (compilerName) { write(" "); write(nts_var(compilerName)); }
 				nextLine();
 				_init_cli(request, buildReq);
 				nextLine();
@@ -248,23 +202,35 @@ private:
 	{
 		auto& cInfo	  = *request.compileInfo; (void) cInfo;
 		auto& names	  = s_names;			  (void) names;
-		auto& cReq	  = cInfo.comileRequest;
 
-		onWrite(names.nts_var(names.shaderCompiler));
+		_isGeneratedSgeShaderCompilerMake = true;
 
+		onWrite(nts_var(names.shaderCompiler));
+
+		{ auto bcmd = BeginCmd::ctor(request); write("-cwd=");			auto bstr = BeginString::ctor(request, nts_var(names.projectRoot)); }
+
+		{ auto bcmd = BeginCmd::ctor(request); write("-makeCompile"); }
+		{ auto bcmd = BeginCmd::ctor(request); write("-generateMake"); }
+
+		#if 0
+		auto& cReq	  = cInfo.comileRequest;  (void) cReq;
 		const auto* profie	= getStageProfile(buildReq._mask, buildReq._apiType);
 		auto& entry			= *buildReq._entry;
-
-		{ auto bcmd = BeginCmd::ctor(request); write("-cwd=");			auto bstr = BeginString::ctor(request, names.nts_var(names.projectRoot)); }
 
 		{ auto bcmd = BeginCmd::ctor(request); write("-x=");			write(cReq.language); }
 		{ auto bcmd = BeginCmd::ctor(request); write("-profile=");		write(profie); }
 		{ auto bcmd = BeginCmd::ctor(request); write("-entry=");		write(entry); }		
-		{ auto bcmd = BeginCmd::ctor(request); write("-file=");			auto bstr = BeginString::ctor(request, names.nts_var(names.shaderFilePath)); }
+		{ auto bcmd = BeginCmd::ctor(request); write("-file=");			auto bstr = BeginString::ctor(request, nts_var(names.shaderFilePath)); }
 		{ auto bcmd = BeginCmd::ctor(request); write("-out=");			auto bstr = BeginString::ctor(request, "$@"); }		
 		{ 
 			_init_cli_include(request, buildReq, "-I=");
+			_init_cli_marco(request, buildReq, "-D");
 		}
+		#else
+
+		{ auto bcmd = BeginCmd::ctor(request); write("-file=");			auto bstr = BeginString::ctor(request, nts_var(names.shaderFilePath)); }
+
+		#endif // 0
 
 	}
 	void _init_cli_glslc(Request& request, BuildRequest& buildReq)
@@ -273,10 +239,10 @@ private:
 		auto& names	  = s_names;			  (void) names;
 		auto& cReq	  = cInfo.comileRequest;
 
-		onWrite("cd "); write(names.nts_var(names.projectRoot)); write(" && ");
-		write(names.nts_var(names.glslc));
+		onWrite("cd "); write(nts_var(names.projectRoot)); write(" && ");
+		write(nts_var(names.glslc));
 
-		const auto* profie	= getGlslcStageProfile(buildReq._mask, buildReq._apiType);
+		const char* profie	= getGlslcStageProfile(buildReq._mask);
 		auto& entry			= *buildReq._entry;
 
 		// -MD must be behide -fshader-stage and -fentry-point
@@ -284,105 +250,36 @@ private:
 		{ auto bcmd = BeginCmd::ctor(request); write("-x ");				write(cReq.language); }
 		{ auto bcmd = BeginCmd::ctor(request); write("-fshader-stage=");	write(profie); }
 		{ auto bcmd = BeginCmd::ctor(request); write("-fentry-point=");		write(entry); }	
-		{ auto bcmd = BeginCmd::ctor(request); write("-MD ");				{ auto bstr = BeginString::ctor(request); write(names.nts_var(names.shaderFilePath)); } }
-		{ auto bcmd = BeginCmd::ctor(request); write("-o ");				{ auto bstr = BeginString::ctor(request); write(names.nts_var(names.shaderBinRoot)); write("/"); write("$@"); } }
+		{ auto bcmd = BeginCmd::ctor(request); write("-MD ");				{ auto bstr = BeginString::ctor(request); write(nts_var(names.shaderFilePath)); } }
+		{ auto bcmd = BeginCmd::ctor(request); write("-o ");				{ auto bstr = BeginString::ctor(request); write(nts_var(names.shaderBinRoot)); write("/"); write("$@"); } }
 		{
 			_init_cli_include(request, buildReq, "-I");
+			_init_cli_marco(request, buildReq, "-D");
 		}
 
 	}
 	void _init_cli_include(Request& request, BuildRequest& buildReq, StrView syntax)
 	{
-		auto& names	  = s_names;			  (void) names;
+		auto& cInfo	  = *request.compileInfo;
+		auto& cReq	  = cInfo.comileRequest;
+
+		for (auto& inc : cReq.include.dirs())
 		{
 			auto bcmd = BeginCmd::ctor(request); write(syntax);
 			auto bstr = BeginString::ctor(request);
-			//write("../../"); write(names.nts_var(names.builtInPath));
-			write(names.nts_var(names.builtInRoot));
+			write(inc);
 		}
+	}
+	void _init_cli_marco(Request& request, BuildRequest& buildReq, StrView syntax)
+	{
+		auto& cInfo	  = *request.compileInfo;
+		auto& cReq	  = cInfo.comileRequest;
+
+		for (auto& mar : cReq.marcos)
 		{
 			auto bcmd = BeginCmd::ctor(request); write(syntax);
 			auto bstr = BeginString::ctor(request);
-			//write("../../"); write(names.nts_var(names.builtInShaderPath));
-			write(names.nts_var(names.builtInShaderRoot));
-		}
-		/*for (auto& inc : cReq.includes)
-		{
-		auto bcmd = BeginCmd::ctor(request); write(syntax);
-		auto bstr = BeginString::ctor(request);
-		write(inc);
-		}*/
-	}
-
-	static const char* getBuildTargetName(ApiType type)
-	{
-		using SRC = ApiType;
-		switch (type)
-		{
-			case SRC::DX11:		{ return s_names.buildDX11; }
-			case SRC::DX12:		{ return s_names.buildDX12; }
-			case SRC::OpenGL:	{ return s_names.buildOpengl; }
-			case SRC::Vulkan:	{ return s_names.buildSpirv; }
-			case SRC::Metal:	{ return s_names.buildMetal; }
-		default:
-			throw SGE_ERROR("unknow api type");
-		}
-	}
-
-	static const char* getBuildBinName(ApiType type)
-	{
-		using SRC = ApiType;
-		switch (type)
-		{
-			case SRC::DX11:		{ return s_names.dx11; }
-			case SRC::DX12:		{ return s_names.dx12; }
-			case SRC::OpenGL:	{ return s_names.opengl; }
-			case SRC::Vulkan:	{ return s_names.spirv; }
-			case SRC::Metal:	{ return s_names.metal; }
-		default:
-			throw SGE_ERROR("unknow api type");
-		}
-	}
-
-	static const char* getCompilerName(ApiType type)
-	{
-		using SRC = ApiType;
-		switch (type)
-		{
-			case SRC::DX11:		{ return s_names.shaderCompiler; }
-			//case SRC::DX12:		{ return s_names.dx12; }
-			//case SRC::OpenGL:	{ return s_names.opengl; }
-			case SRC::Vulkan:	{ return nullptr; }
-			//case SRC::Metal:	{ return s_names.metal; }
-		default:
-			throw SGE_ERROR("unknow api type");
-		}
-	}
-
-	static const char* getStageProfile(ShaderStageMask mask, ApiType type)
-	{
-		using SRC = ApiType;
-		switch (type)
-		{
-			case SRC::DX11:		{ return DX11Util::getDxStageProfile(mask); }
-			//case SRC::DX12:		{ return s_names.dx12; }
-			//case SRC::OpenGL:	{ return s_names.opengl; }
-			case SRC::Vulkan:	{ return VulkanUtil::getVkStageProfile(mask); }
-			//case SRC::Metal:	{ return s_names.metal; }
-		default:
-			throw SGE_ERROR("unknow api type, getBuildBinName()");
-		}
-	}
-
-	static const char* getGlslcStageProfile(ShaderStageMask mask, ApiType type)
-	{
-		using SRC = ShaderStageMask;
-		switch (mask)
-		{
-			case SRC::Vertex:	{ return "vertex"; }
-			case SRC::Pixel:	{ return "fragment"; }
-		default:
-			throw SGE_ERROR("unknow ShaderStageMask, getGlslcStageProfile()");
+			write(mar.name); write(" = "); write(mar.value); 
 		}
 	}
 
@@ -412,7 +309,7 @@ private:
 
 		content += binName; content += ":\\\n";
 
-		for (auto& inc : cReq.include.files)
+		for (auto& inc : cReq.include.files())
 		{
 			content += "\t";
 			content += inc;
@@ -421,49 +318,6 @@ private:
 
 		File::writeFileIfChanged(tmp, content, false);
 	}
-
-#if 0
-	void _init_dx11(Request& request)
-	{
-		auto& cInfo	  = *request.compileInfo; (void) cInfo;
-		auto& names	  = s_names;			  (void) names;
-
-		auto ifeq = Ifeq::ctor(request, names.buildDX11, "1");
-		nextLine();
-
-		TempString tmp;
-		size_t passIndex = 0;
-		for (auto& pass : cInfo.shaderInfo.passes) {
-
-			init_dx11_bin(request, tmp, pass.vsFunc, ShaderStageMask::Vertex, passIndex);
-			init_dx11_bin(request, tmp, pass.psFunc, ShaderStageMask::Pixel,  passIndex);
-
-			passIndex++;
-		}
-	}
-	void init_dx11_bin(Request& request, TempString& tmp, const String& func, ShaderStageMask mask, size_t passIndex)
-	{
-		auto& cInfo	  = *request.compileInfo; (void) cInfo;
-		auto& names	  = s_names;			  (void) names;
-
-		tmp.clear();
-
-		if (func.size()) {
-			auto profile = DX11Util::getDxStageProfile(mask);
-			FmtTo(tmp, "$({})/pass{}/{}.bin", names.dx11, passIndex, profile);
-
-			{ auto target0 = Target::ctor(request, "all", { tmp });  }
-
-			{
-				auto target1 = Target::ctor(request, tmp, { names.nts_var(names.currentMakeFile), } );
-				onWrite(names.nts_var(names.shaderCompiler));
-				nextLine();
-			}
-		}
-	}
-
-#endif // 0
-
 protected:
 	Request _request;
 };

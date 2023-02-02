@@ -4,7 +4,9 @@
 namespace sge {
 
 void Material::setShader(Shader* shader) {
-	if (_shader == shader) return;
+	//if (_shader == shader) return;
+	if (!shader)
+		return;
 	_shader = shader;
 	_passes.clear();
 	_passes.reserve(shader->passes().size());
@@ -13,7 +15,30 @@ void Material::setShader(Shader* shader) {
 		_passes.emplace_back(std::move(pass));
 	}
 
+	//_permuts.clear();
+	resetPermutation(shader->info()->permuts);
+
 	onSetShader();
+
+	Renderer::instance()->shaderRefData().setMaterialShader(this, shader);
+}
+
+void Material::setPermutation(StrView name, StrView value)						
+{
+	if (_permuts.size() == 0)
+	{
+		resetPermutation(_shader->info()->permuts);
+	}
+	_setPermutation(name, value); 
+	Renderer::instance()->shaderRefData().sendPermutationRequest(this); 
+}
+
+void Material::resetPermutation(const ShaderInfo::Permutations& permutations)	{ _permuts.create(permutations); }
+void Material::clearPermutation()
+{
+	_permuts.clear();
+	auto shader = Renderer::instance()->createShader(_shader->filename());
+	_shader = shader;
 }
 
 MaterialPass_Stage::MaterialPass_Stage(MaterialPass* pass, ShaderStage* shaderStage) 
@@ -80,5 +105,7 @@ Texture* MaterialPass_Stage::TexParam::getUpdatedTexture() {
 	// TODO update texture
 	return _tex;
 }
+
+
 
 }

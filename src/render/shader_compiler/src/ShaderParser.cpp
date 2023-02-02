@@ -42,34 +42,12 @@ void ShaderParser::_readShader()
 	for (;;) {
 		if (_token.isOperator("}"))		{ nextToken(); break; }
 		if (_token.isNewline())			{ nextToken(); continue; }
-		if (_token.isIdentifier("Properties"))	{ _readProperties(); continue; }
-		if (_token.isIdentifier("Pass"))		{ _readPass(); continue; }
+
+		if (_token.isIdentifier("Properties"))	{ _readProperties();	continue; }
+		if (_token.isIdentifier("Pass"))		{ _readPass();			continue; }
+		if (_token.isIdentifier("Permutation"))	{ _readPermutation();	continue; }
+
 		return errorUnexpectedToken();
-	}
-
-	{
-		for (;;)
-		{
-			if (_token.isNone())			{ break; }
-			if (!_token.isOperator("#"))	{ nextToken(); continue; }
-
-			nextToken();
-			if (_token.isIdentifier("include"))	{ _readInclude(); }
-			if (_token.isIdentifier("define"))	{ _readMarco(); }
-		}
-
-		#if 0
-		for (auto& m : _cInfo->comileRequest.marcos)
-		{
-			SGE_LOG("Shader Marco: {}={}", m.name, m.value);
-		}
-
-		for (auto& inc : _cInfo->comileRequest.includes)
-		{
-			SGE_LOG("Shader Include: {}", inc);
-		}
-		#endif // 0
-
 	}
 }
 
@@ -171,42 +149,54 @@ void ShaderParser::_readBlendFunc(RenderState::BlendFunc& v) {
 	readEnum(v.dstFactor);
 }
 
-void ShaderParser::_readInclude()
+void ShaderParser::_readPermutation()
 {
 	nextToken();
-	if (!_token.isString())
-		_error("_readInclude() expected String");
-	auto& include = _cInfo->comileRequest.include;
-	const auto& shader_path = _cInfo->comileRequest.inputFilename; (void)shader_path;
-	auto& inc_path = _token.str; (void)inc_path;
+	skipNewlineTokens();
+	expectOperator("{");
 
-	include.addFileCount();
-	//ShaderInclude::s_resolve(include, shader_path, inc_path);
+	for (;;) {
+		skipNewlineTokens();
+		if (_token.isOperator("}")) { nextToken(); break; }
+
+
+		if (!_token.isIdentifier())
+			errorUnexpectedToken();
+
+		auto& permut = _pOutInfo->permuts.emplace_back();
+		readIdentifier(permut.name);
+		_readPermutation_Value();
+		//_readValue(permut.value);
+	}
+
 }
 
-void ShaderParser::_readMarco()
+void ShaderParser::_readPermutation_Value()
 {
-	nextToken();
-	bool isIgnore = _token.isIdentifier("if") || _token.isIdentifier("ifdef") || _token.isIdentifier("ifndef") ||
-		_token.isIdentifier("endif");
-	if (isIgnore)
-		return;
-
-	auto& back = _cInfo->comileRequest.marcos.emplace_back();
-	auto& name	= back.name;
-	auto& value = back.value;
-
-	readIdentifier(name);
-	_readValue(value);
-	nextToken();
-}
-
-void ShaderParser::_readValue(String& str)
-{
-	while (!_token.isNone()) {
-		if (_token.isNewline()) { break; }
-		str += _token.str;
+	if (_token.isOperator("=")) {
 		nextToken();
+		expectOperator("{");
+
+		while (!_token.isNone()) {
+			if (_token.isOperator("}")) { nextToken(); break; }
+			if (_token.isNewline())		{ break; }
+
+			auto& values = _pOutInfo->permuts.back().values;
+
+			skipNewlineTokens();
+
+			auto& value = values.emplace_back();
+			value += _token.str;
+			nextToken();
+			if (_token.isIdentifier("f"))
+				nextToken();
+
+			if (_token.isOperator(","))
+			{
+				nextToken();
+				continue;
+			}
+		}
 	}
 }
 

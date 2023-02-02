@@ -178,8 +178,8 @@ void Boids::update()
 {
 	SGE_PROFILE_SCOPED;
 
-	//if (!_enableUpdate)
-	//	return;
+	if (!_enableUpdate)
+		return;
 
 	#if SGE_IS_MT_BOIDS
 	{

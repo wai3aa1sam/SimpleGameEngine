@@ -49,3 +49,5 @@
 
 #include <sge_core/native_ui/NativeUI.h>
 
+#include <sge_core/process/Process.h>
+#include <sge_core/process/CommandLine.h>

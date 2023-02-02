@@ -1,3 +1,4 @@
+#pragma once
 #include "MathGeometry.h"
 #include "BBox3.h"
 

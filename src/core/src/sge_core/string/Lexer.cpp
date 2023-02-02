@@ -269,6 +269,13 @@ void Lexer::readIdentifier(String& s) {
 	nextToken();
 }
 
+void Lexer::readNumber(String& s)
+{
+	if (!_token.isNumber()) errorUnexpectedToken();
+	s = _token.str;
+	nextToken();
+}
+
 void Lexer::readBool(bool& v) {
 	if (!_token.isIdentifier()) errorUnexpectedToken();
 	if (_token.str == "true")

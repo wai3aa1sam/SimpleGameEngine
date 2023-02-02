@@ -1,3 +1,4 @@
+#include <sge_render-pch.h>
 #include "Renderer.h"
 
 #include "backend/dx11/Renderer_DX11.h"
@@ -75,9 +76,11 @@ SPtr<Texture2D> Renderer::createSolidColorTexture2D(const Color4b& color) {
 }
 
 SPtr<Shader> Renderer::createShader(StrView filename) {
+	return _shaderRefData.createShader(filename);
+	#if 0
 	TempString tmpName = filename;
 
-	auto it = _shaders.find(tmpName.c_str());
+	auto it = _shaders.find(tmpName);
 	if (it != _shaders.end()) {
 		return it->second;
 	}
@@ -85,10 +88,19 @@ SPtr<Shader> Renderer::createShader(StrView filename) {
 	auto s = onCreateShader(tmpName);
 	_shaders[tmpName.c_str()] = s.ptr();
 	return s;
+	#endif // 0
+}
+
+SPtr<Shader> Renderer::createShader(Shader* shader, const ShaderPermutations& permuts)
+{
+	return _shaderRefData.createShader(shader, permuts);
 }
 
 void Renderer::onShaderDestory(Shader* shader) {
+	_shaderRefData.removeShader(shader);
+	#if 0
 	_shaders.erase(shader->filename().c_str());
+	#endif // 0
 }
 
 }

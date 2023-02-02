@@ -10,29 +10,17 @@ void EditorApp::onCreate(CreateDesc& desc)
 	{
 		String file = getExecutableFilename();
 		String path = FilePath::dirname(file);
-		path.append("/../../../../../../examples/Test101");
 
 		auto* proj = ProjectSettings::instance();
-		proj->setProjectRoot(path);
-	}
 
-#if 1 // compile shaders for quick testing
-	{
-		SHELLEXECUTEINFO ShExecInfo = {0};
-		ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFO);
-		ShExecInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
-		ShExecInfo.hwnd = NULL;
-		ShExecInfo.lpVerb = L"open";
-		ShExecInfo.lpFile = L"compile_shaders.bat";
-		ShExecInfo.lpParameters = L"";
-		ShExecInfo.lpDirectory = NULL;
-		ShExecInfo.nShow = SW_SHOW;
-		ShExecInfo.hInstApp = NULL; 
-		ShellExecuteEx(&ShExecInfo);
-		WaitForSingleObject(ShExecInfo.hProcess, INFINITE);
-		CloseHandle(ShExecInfo.hProcess);
+		path.append("/../../../../../..");
+		proj->setSgeRoot(path);
+
+		path.append("/examples/Test101");
+		proj->setProjectRoot(path);
+
+		Directory::create(proj->importedPath());
 	}
-#endif
 
 	Base::onCreate(desc);
 

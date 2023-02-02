@@ -70,6 +70,7 @@ public:
 
 	void readString(String& s);
 	void readIdentifier(String& s);
+	void readNumber(String& s);
 
 	void readBool(bool& v);
 

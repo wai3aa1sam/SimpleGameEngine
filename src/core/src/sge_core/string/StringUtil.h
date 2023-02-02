@@ -32,6 +32,9 @@ struct StringUtil {
 	template<class T>
 	static String toString(const T& v) { return String(std::to_string(v).c_str()); }
 
+	template<class T>
+	static void toString(TempString& out, const T& v) { out.clear(); out.append(std::to_string(v).c_str()); }
+
 	static bool tryParse(StrView view, i8 & outValue);
 	static bool tryParse(StrView view, i16& outValue);
 	static bool tryParse(StrView view, i32& outValue);

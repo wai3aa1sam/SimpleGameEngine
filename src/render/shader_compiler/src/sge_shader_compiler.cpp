@@ -5,19 +5,19 @@
 
 namespace sge {
 
-ShaderGNUMake::Names ShaderGNUMake::s_names;
+//Names s_names;
 
 }
 
 int main(int argc, char** argv) {
 
 	sge::ShaderCompiler app;
-
+	
 #if 0
 	char* argvs[]
 	{
 		"sge_shader_compiler.exe",
-		"-cwd=../../../../../../examples/Test101",
+		"-cwd=../../../../../examples/Test101",
 		"-x=hlsl",
 		//"-file = \"Assets\\\\Shaders\\\\test.shader\"",
 		//"-file=\"../Test101/Assets/Shaders/test.shader\"", // legacy
@@ -31,10 +31,13 @@ int main(int argc, char** argv) {
 		"-I=../../abc/c /c../..",
 		"-I=../../built-in",
 
-		"-D../SGE_IS_INVERT../_Y=",
+		"-DSGE_IS_INVERT_Y=",
 		"-D_JJHHY=5584",
 		"-I=../../built-in/shader",
 		"-D_Hahahah",
+
+		"-generateMake",
+		"-makeCompile"
 
 		//"-I=\"../../../built-in\"",
 	};
@@ -43,8 +46,8 @@ int main(int argc, char** argv) {
 
 #else
 	app.parseCmdLine(sge::CmdLineArg(argc, argv));
-
 #endif // 0
+
 
 	app.run();
 

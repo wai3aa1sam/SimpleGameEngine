@@ -186,6 +186,7 @@ public:
 	StringT() = default;
 	StringT(const T* begin, const T* end) : Base(begin, end) {}
 	StringT(StrViewT<T> view) : Base(view.data(), view.size()) {}
+	StringT(const StringT& str) : Base(str) {}
 	StringT(StringT&& str) : Base(std::move(str)) {}
 	StringT(const T* sz) : Base(sz) {}
 
@@ -301,3 +302,11 @@ template<class T> ScopedValue<T> makeScopedValue(T* p) { return ScopedValue<T>(p
 template<class T> ScopedValue<T> makeScopedValue(T* p, const T& newValue) { return ScopedValue<T>(p, newValue); }
 
 } // namespace
+
+template <>
+struct ::eastl::less<sge::String>  {
+	bool operator()(const sge::String& a, const sge::String& b) const
+	{
+		return a < b;
+	}
+};

@@ -4,16 +4,46 @@
 
 namespace sge {
 
-Shader_DX11::Shader_DX11(StrView filename) 
+Shader_DX11::Shader_DX11(StrView filename)
 	: Base(filename)
 {
 	auto* proj = ProjectSettings::instance();
-	TempString passPath;
+	TempString apiPath;
 
+	FmtTo(apiPath, "{}/{}/dx11", proj->importedPath(), filename);
+	_onReset(apiPath);
+}
+
+Shader_DX11::Shader_DX11(StrView filename, const ShaderPermutations& permuts)
+	: Base(filename, permuts)
+{
+	auto* proj = ProjectSettings::instance();
+	TempString apiPath;
+	TempString permutName;
+
+	permuts.nameTo(permutName);
+	FmtTo(apiPath, "{}/{}/{}/{}/dx11", proj->importedPath(), filename, proj->shaderPermutationPath(), permutName);
+	_onReset(apiPath);
+}
+
+void Shader_DX11::onReset()
+{
+	auto* proj = ProjectSettings::instance();
+	TempString apiPath;
+
+	FmtTo(apiPath, "{}/{}/dx11", proj->importedPath(), filename());
+	_onReset(apiPath);
+}
+
+void Shader_DX11::_onReset(StrView apiPath)
+{
+	TempString passPath;
 	size_t n = _info.passes.size();
+
+	_passes.clear();
 	_passes.reserve(n);
 	for (size_t i = 0; i < n; i++) {
-		FmtTo(passPath, "{}/{}/dx11/pass{}", proj->importedPath(), filename, i);
+		FmtTo(passPath, "{}/pass{}", apiPath, i);
 		auto* pass = new MyPass(this, passPath, _info.passes[i]);
 		_passes.emplace_back(pass);
 	}

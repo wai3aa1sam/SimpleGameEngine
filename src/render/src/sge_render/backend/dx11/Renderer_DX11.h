@@ -32,7 +32,8 @@ protected:
 
 	virtual SPtr<Material>			onCreateMaterial() override;
 	virtual SPtr<Shader>			onCreateShader		(StrView filename) override;
-	
+	virtual SPtr<Shader>			onCreateShader		(Shader* shader, const ShaderPermutations& permuts) override;
+
 	ComPtr<DX11_IDXGIFactory>		_dxgiFactory;
 	ComPtr<DX11_IDXGIDevice>		_dxgiDevice;
 	ComPtr<DX11_IDXGIAdapter>		_dxgiAdapter;

@@ -18,6 +18,17 @@ Shader {
 		VsFunc		vs_main
 		PsFunc		ps_main
 	}
+
+	Permutation
+	{
+		ENABLE_FEATURE_X 	= {1, 0, }
+		//
+		FEATURE_X_VAL 		=         {  15, 0.02f, }
+		FEATURE_X_VAL2 		= {"asdsad"    ,            "ASdsa", asdsdsa_Asd, true}
+		ENABLE_feature_y	= {false}
+		ENABLE_feature		= {0, 1}
+
+	}
 }
 #endif
 
@@ -41,5 +52,11 @@ PixelIn vs_main(VertexIn i) {
 }
 
 float4 ps_main(PixelIn i) : SV_TARGET {
+	//float4 color = {1, 1, 1, 1}; 
+	//return color;
+	#if	ENABLE_feature
+	return float4(1, 1, 1, 1);
+	#else
 	return i.color;
+	#endif
 }

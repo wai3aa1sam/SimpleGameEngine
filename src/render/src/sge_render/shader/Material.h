@@ -204,10 +204,16 @@ public:
 	void setParam(StrView name, const Tuple4f& v) { _setParam(name, v); }
 	void setParam(StrView name, const Mat4f&   v) { _setParam(name, v); }
 
+	void setPermutation(StrView name, StrView value)					;
+	void resetPermutation(const ShaderInfo::Permutations& permutations) ;
+	void clearPermutation()												;
+
 	using Pass			= MaterialPass;
 	using Stage			= MaterialPass_Stage;
 	using VertexStage	= MaterialPass_VertexStage;
 	using PixelStage	= MaterialPass_PixelStage;
+
+	using Permutations	= Shader::Permutations;
 
 	Span<UPtr<Pass>>	passes() { return _passes; }
 
@@ -218,6 +224,17 @@ public:
 		}
 		return _passes[index].get();
 	}
+
+
+	//template<class STR>
+	//void shaderFilenameTo(STR& o) const
+	//{
+	//	o += _shader->filename();
+	//}
+
+	const Permutations& permutations() const { return _permuts; }
+
+	Shader* _internal_shader()	{ return _shader; }
 
 protected:
 	template<class V> void _setParam(StrView name, const V& v) {
@@ -232,8 +249,22 @@ protected:
 		}
 	}
 
+	void _setPermutation(StrView name, StrView value)
+	{
+		//auto* renderer = Renderer::instance();
+		// renderer->addShaderRequest(this, _shader);
+		bool isExist = _shader->info()->isPermutationValid(name, value);
+		if (!isExist)
+		{
+			throw SGE_ERROR("unknow Permutation name");
+		}
+		_permuts.set(name, value);
+	}
+	
 	Vector<UPtr<Pass>, 2>	_passes;
 	SPtr<Shader> _shader;
+	Permutations _permuts;
+
 	virtual void onSetShader() {}
 	virtual UPtr<Pass> onCreatePass(ShaderPass* shaderPass) = 0;
 };

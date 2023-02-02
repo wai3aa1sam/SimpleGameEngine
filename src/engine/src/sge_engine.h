@@ -9,3 +9,5 @@
 #include <sge_engine/components/CTransform.h>
 #include <sge_engine/components/CMeshRenderer.h>
 #include <sge_engine/components/CRendererSystem.h>
+
+#include <sge_engine/utility/CompileShader.h>

@@ -97,9 +97,9 @@ ShaderCompiler_DX11::ShaderCompiler_DX11(CompileInfo& cInfo_)
 {
 }
 
-void ShaderCompiler_DX11::compile(StrView outPath, ShaderStageMask shaderStage, StrView srcFilename, StrView entryFunc) {
+void ShaderCompiler_DX11::compile(StrView outPath, ShaderStageMask shaderStage, StrView srcFilename, StrView entryFunc) 
+{
 	TempStringA entryPoint = entryFunc;
-
 
 	MemMapFile memmap;
 	memmap.open(srcFilename);
@@ -118,7 +118,7 @@ void ShaderCompiler_DX11::compile(StrView outPath, ShaderStageMask shaderStage, 
 
 	auto profile = Util::getDxStageProfile(shaderStage);
 
-	_cInfo->comileRequest.include.files.clear();	// avoid duplicated when compile all
+	_cInfo->comileRequest.include.clearFiles();	// avoid duplicated when compile all
 	Include_DX11 include_dx11(*_cInfo);
 	Vector<D3D_SHADER_MACRO> marco_dx11;
 	_init_marco(marco_dx11);

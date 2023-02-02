@@ -77,8 +77,65 @@ struct ShaderInfo {
 		}
 	};
 
-	Vector<Prop, 8>	props;
-	Vector<Pass, 1>	passes;
+	struct Permutation
+	{
+		String name;
+		//String value;
+		Vector<String, 2> values;
+
+		bool isValueExist(StrView val) const
+		{
+			return findValueIdx(val) != -1;
+		}
+
+		int findValueIdx(StrView val) const
+		{
+			for (int i = 0; i < values.size(); ++i)
+			{
+				if (val.compare(values[i]) == 0)
+					return i;
+			}
+			return -1;
+		}
+
+		template<class SE>
+		void onJson(SE& se) {
+			SGE_NAMED_IO(se, name);
+			SGE_NAMED_IO(se, values);
+		}
+	};
+
+	bool isPermutationValid(StrView name, StrView value) const
+	{
+		for (auto& permut : permuts)
+		{
+			if (!(name == permut.name))
+				continue;
+			for (auto& v : permut.values)
+			{
+				if (!(value == v))
+					continue;
+				return true;
+			}
+		}
+		return false;
+	}
+	int findPermutationNameIdx(StrView name) const
+	{
+		for (int i = 0; i < permuts.size(); i++)
+		{
+			auto& permut = permuts[i];
+			if (name == permut.name)
+				return i;
+		}
+		return -1;
+	}
+
+	using Permutations = Vector<Permutation, 2>;
+
+	Vector<Prop, 8>		props;
+	Vector<Pass, 1>		passes;
+	Permutations		permuts;
 
 	void clear();
 
@@ -86,6 +143,7 @@ struct ShaderInfo {
 	void onJson(SE & se) {
 		SGE_NAMED_IO(se, props);
 		SGE_NAMED_IO(se, passes);
+		SGE_NAMED_IO(se, permuts);
 	}
 };
 

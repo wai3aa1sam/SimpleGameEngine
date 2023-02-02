@@ -19,4 +19,4 @@ python sge_compile_shader.py %PROJECT_ROOT%
 
 popd
 
-pause
+@rem pause

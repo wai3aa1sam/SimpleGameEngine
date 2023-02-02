@@ -1,8 +1,6 @@
 #include "sge_shader_compiler-pch.h"
 #include "ShaderCmdLineParser.h"
 
-#define SGE_ShaderCmdLineParser_STREAM_IMPL 0
-
 #define SGE_ShaderCmdLineParser_Debug 0
 
 #if SGE_ShaderCmdLineParser_Debug
@@ -16,6 +14,8 @@ void ShaderCmdLineParser::readArgv(Info& info, const CmdLineArg& arg)
 {
 	TempString cmdStream;
 	arg.stream(cmdStream);
+
+	SGE_LOG("args: {}", cmdStream);
 
 	_info = &info;
 	_cmdArg = &arg;
@@ -39,7 +39,6 @@ void ShaderCmdLineParser::_readCmdLine()
 
 	_skipProgramName();
 
-	#if !SGE_ShaderCmdLineParser_STREAM_IMPL
 	char ch = 0;
 	for (;; nextCmd())
 	{
@@ -50,7 +49,7 @@ void ShaderCmdLineParser::_readCmdLine()
 			break;
 
 		if (ch != '-')
-			_error("in correct syntax, - is missing");
+			throw SGE_ERROR("Error: {} in correct syntax, - is missing", cmd());
 
 		nextCmdChar();
 		ch = getCmdCh();
@@ -62,6 +61,10 @@ void ShaderCmdLineParser::_readCmdLine()
 
 		cmdExtract("=");	// skip assign
 
+		if (isCmd("makeCompile"))	{ _info->isGNUMakeCompile = true; continue; }
+		if (isCmd("generateMake"))	{ _info->isGenerateMake   = true; continue; }
+		if (isCmd("permutName"))	{ cmdRead(req().permutName); continue; }
+
 		if (isCmd("cwd"))		{ _readCWD();			continue; }
 
 		if (isCmd("x"))			{ _readShaderLang();	continue; }
@@ -71,29 +74,6 @@ void ShaderCmdLineParser::_readCmdLine()
 		if (isCmd("profile"))	{ _readProfile();		continue; }
 		if (isCmd("entry"))		{ _readEntry();			continue; }
 	}
-
-	#else
-	for (;;)
-	{
-
-		if (token().isOperator("-"))	{ nextToken(); }
-
-		//if (token().isIdentifier("hlsl") || token().isIdentifier("glsl")) { readIdentifier(req().language); continue; }
-
-		if (token().isIdentifier("x"))			{ _readShaderLang();	continue; }
-		if (token().isIdentifier("file"))		{ _readFile();			continue; }
-		if (token().isIdentifier("out"))		{ _readOutput();		continue; }
-		if (token().isIdentifier("profile"))	{ _readProfile();		continue; }
-		if (token().isIdentifier("entry"))		{ _readEntry();			continue; }
-		if (token().isIdentifier("I"))			{ _readInclude();		continue; }
-
-		if (isFirstChar("D"))					{ _readMarco();			continue; }
-
-		return errorUnexpectedToken();
-	}
-
-	#endif // 0
-
 }
 
 void ShaderCmdLineParser::_readCWD()
@@ -106,7 +86,6 @@ void ShaderCmdLineParser::_readCWD()
 	#endif // SGE_ShaderCmdLineParser_PRINT
 }
 
-#if !SGE_ShaderCmdLineParser_STREAM_IMPL
 void ShaderCmdLineParser::_readShaderLang()
 {
 	cmdRead(req().language);
@@ -156,19 +135,17 @@ void ShaderCmdLineParser::_readEntry()
 	SGE_LOG("====== _readEntry =========");
 	SGE_DUMP_VAR(req().entry);
 	#endif // SGE_ShaderCmdLineParser_PRINT
-
 }
 
 void ShaderCmdLineParser::_readInclude()
 {
-	auto& back = req().include.dirs.emplace_back();
+	auto& back = req().include.emplaceBackDir();
 	cmdRead(back);
 
 	#if SGE_ShaderCmdLineParser_PRINT
 	SGE_LOG("====== _readInclude =========");
 	SGE_DUMP_VAR(back);
 	#endif // SGE_ShaderCmdLineParser_PRINT
-
 }
 
 void ShaderCmdLineParser::_readMarco()
@@ -196,168 +173,6 @@ void ShaderCmdLineParser::_skipAssign()
 {
 	this->cmdSkipToNext("=");
 }
-#else
-void ShaderCmdLineParser::_readShaderLang()
-{
-	SGE_LOG("====== _readShaderLang =========");
-	_skipAssign();
-
-	readIdentifier(req().language);
-
-	SGE_DUMP_VAR(req().language);
-}
-
-void ShaderCmdLineParser::_readFile()
-{
-	SGE_LOG("====== _readFile =========");
-
-	#if 0
-	_skipAssign();
-	#else
-	SGE_LOG("current token: {}", token().str);
-
-	nextToken();
-	SGE_LOG("current token: {}", token().str);
-
-	if (token().isOperator("="))
-	{
-		nextToken();
-		SGE_LOG("current token: {}", token().str);
-	}
-	#endif // 0
-
-	SGE_LOG("====== _End skip assign =========");
-
-	SGE_LOG("cmd[2]: {}", (*_cmdArg)[2]);
-
-	#if 0
-	// file named .shader
-	if (token().isOperator("."))
-	{
-		req().inputFilename += token().str; nextToken();
-		req().inputFilename += token().str;
-	}
-	// file named xxxx.shader
-	else
-	{
-		readIdentifier(req().inputFilename); nextToken();
-		if (token().isOperator("."))
-		{
-			req().inputFilename += token().str; nextToken();
-			req().inputFilename += token().str;
-		}
-	}
-	#endif // 0
-
-	SGE_LOG("current token: {}", token().str);
-
-	if (!token().isString())
-		_error("expected String");
-
-	readString(req().inputFilename);
-	SGE_DUMP_VAR(req().inputFilename);
-}
-
-void ShaderCmdLineParser::_readOutput()
-{
-	SGE_LOG("====== _readOutput =========");
-	_skipAssign();
-
-	if (!token().isString())
-		_error("expected String");
-
-	readString(req().outputFilename);
-	SGE_DUMP_VAR(req().outputFilename);
-}
-
-void ShaderCmdLineParser::_readProfile()
-{
-	SGE_LOG("====== _readProfile =========");
-	_skipAssign();
-
-	for (;;)
-	{
-		if (token().isOperator("-")  || token().isNone())
-			break;
-
-		req().profile += token().str;
-		nextToken();
-	}
-
-	nextToken();
-	SGE_DUMP_VAR(req().profile);
-}
-
-void ShaderCmdLineParser::_readEntry()
-{
-	SGE_LOG("====== _readEntry =========");
-	_skipAssign();
-
-	for (;;)
-	{
-		if (token().isOperator("-")  || token().isNone())
-			break;
-
-		req().entry += token().str;
-		nextToken();
-	}
-
-	nextToken();
-	SGE_DUMP_VAR(req().entry);
-}
-
-void ShaderCmdLineParser::_readInclude()
-{
-	SGE_LOG("====== _readInclude =========");
-
-	_skipAssign();
-
-	for (;;)
-	{
-		if (token().isOperator("-") || token().isNone())
-			break;
-
-		if (!token().isString())
-			_error("expected String");
-
-		auto& back = req().includes.emplace_back();
-		readString(back);
-
-		SGE_DUMP_VAR(token().str);
-	}
-
-	nextToken();
-	SGE_DUMP_VAR(req().includes.front());
-}
-
-void ShaderCmdLineParser::_readMarco()
-{
-	SGE_LOG("====== _readMarco =========");
-	//_skipAssign();
-
-	auto& back = req().marcos.emplace_back();
-
-	extract(back.name, "D", "="); expectOperator("=");
-
-	if (token().isOperator("-"))
-	{
-		SGE_DUMP_VAR(req().marcos.back().name);
-		SGE_DUMP_VAR(req().marcos.back().value);
-		return;
-	}
-	extract(back.value, "", " ");
-
-	SGE_DUMP_VAR(req().marcos.back().name);
-	SGE_DUMP_VAR(req().marcos.back().value);
-}
-
-void ShaderCmdLineParser::_skipAssign()
-{
-	nextToken();
-	if (token().isOperator("="))
-		nextToken();
-}
-#endif
 
 void ShaderCmdLineParser::_skipProgramName()
 {
@@ -367,14 +182,6 @@ void ShaderCmdLineParser::_skipProgramName()
 	{
 		info().cwd = "/";
 	}
-
-	#if SGE_ShaderCmdLineParser_STREAM_IMPL
-	for (size_t i = token().str.size(); i < programName.size(); i++)
-	{
-		nextChar();
-	}
-	nextToken();
-	#endif // SGE_ShaderCmdLineParser_STREAM_IMPL
 	nextCmd();
 }
 
@@ -389,7 +196,7 @@ void ShaderCmdLineParser::extract(String& out, StrView target, StrView delimiter
 	// case 2: -Ixxx.h
 	for (auto& s : target)
 	{
-		SGE_ASSERT(s == *beg);
+		SGE_ASSERT(s == *beg); (void)s;
 		beg++;
 	}
 	if (beg != end)

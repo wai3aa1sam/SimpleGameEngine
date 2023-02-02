@@ -36,4 +36,16 @@ void EditorMainWindow::onUIMouseEvent(UIMouseEvent& ev)
 	EditorApp::instance()->onUIMouseEvent(ev);
 }
 
+void EditorMainWindow::onActive(bool isActive)
+{
+	if (isActive)
+	{
+		//{ static auto s = Renderer::instance()->createShader("Assets/Shaders/test.shader"); }
+		//{ static auto s = Renderer::instance()->createShader("Assets/Shaders/line.shader"); }
+		{ Process sh = {"compile_shaders.bat"}; }
+		CompileShader::hotReload();
+		CompileShader::reloadPermutation();
+	}
+}
+
 }

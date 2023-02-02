@@ -25,6 +25,15 @@ Shader {
 		VsFunc		vs_main
 		PsFunc		ps_main
 	}
+
+	Permutation
+	{
+		ENABLE_FEATURE_X 	= {1, 0, }
+		//
+		FEATURE_X_VAL 		=         {  15, 0.02f, }
+		FEATURE_X_VAL2 		= {"asdsad"    ,            "ASdsa", asdsdsa_Asd, true}
+		ENABLE_feature_y	= {false}
+	}
 }
 #endif
 

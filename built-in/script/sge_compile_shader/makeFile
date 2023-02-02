@@ -50,8 +50,8 @@ all: $(SHADER_MAKE_ROOT)
 $(SHADER_MAKE_ROOT): $(SHADER_FILE_ROOT)
 	@echo === sgeShaderCompiler
 	@echo --- input shader --- $(SHADER_FILE_PATH)
-	$(sgeShaderCompiler) -cwd="$(PROJECT_ROOT)" -file="$(SHADER_FILE_PATH)" -I="$(BUILT_IN_ROOT)" -I="$(BUILT_IN_SHADER_ROOT)"
-	$(SGE_MAKE) -C $(SHADER_BIN_ROOT)
+	$(sgeShaderCompiler) -cwd="$(PROJECT_ROOT)" -file="$(SHADER_FILE_PATH)" -generateMake
+#$(SGE_MAKE) -C $(SHADER_BIN_ROOT)
 #@echo SHADER_MAKE_ROOT --- $(SHADER_MAKE_ROOT)
 
 endif

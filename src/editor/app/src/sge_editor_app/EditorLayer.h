@@ -22,6 +22,11 @@ public:
 protected:
 	virtual void onUpdate() = 0;
 	virtual void onRender(RenderContext& rdCtx_, RenderData& rdData_) = 0;
+	virtual void onRenderGUI(RenderContext& rdCtx_, RenderData& rdData_) = 0;
+
+protected:
+	EditorHierarchyWindow		_hierarchyWindow;
+	EditorInspectorWindow		_inspectorWindow;
 private:
 	
 };
@@ -38,18 +43,19 @@ public:
 	void onUIMouseEvent(UIMouseEvent& ev);
 
 protected:
-	virtual void onUpdate();
-	virtual void onRender(RenderContext& rdCtx_, RenderData& rdData_);
+	virtual void onUpdate() override;
+	virtual void onRender(RenderContext& rdCtx_, RenderData& rdData_) override;
+
+	virtual void onRenderGUI(RenderContext& rdCtx_, RenderData& rdData_) override;
 
 private:
-	EditorHierarchyWindow		_hierarchyWindow;
-	EditorInspectorWindow		_inspectorWindow;
 
 	Math::Camera3f		_camera;
 	Scene				_scene;
 
 	SPtr<Shader>		_shader;
 
+	SPtr<Shader>		_lineShader;
 	SPtr<Material>		_lineMaterial;
 
 	SPtr<Material>		_material;

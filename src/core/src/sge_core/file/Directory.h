@@ -1,5 +1,7 @@
 #pragma once
 
+#include <filesystem>
+
 namespace sge {
 
 struct Directory {
@@ -14,6 +16,9 @@ struct Directory {
 	static bool isExist(StrView path);
 	static bool isDirectory(StrView path);
 	static bool isFile(StrView path);
+
+	static void removeIfEmpty(StrView path);
+	static void removeAll(StrView path);
 
 private:
 	static void _create(StrView path);

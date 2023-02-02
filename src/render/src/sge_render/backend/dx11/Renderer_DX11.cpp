@@ -123,6 +123,11 @@ SPtr<Shader> Renderer_DX11::onCreateShader(StrView filename) {
 	return new Shader_DX11(filename);
 }
 
+SPtr<Shader> Renderer_DX11::onCreateShader(Shader* shader, const Shader::Permutations& permuts)
+{
+	return new Shader_DX11(shader->filename(), permuts);
+}
+
 void Renderer_DX11::validateContext() {
 	if (!_d3dDebug) return;
 	auto hr = _d3dDebug->ValidateContext(_d3dDeviceContext.ptr());
