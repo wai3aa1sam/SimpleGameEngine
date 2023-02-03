@@ -97,6 +97,7 @@ void Process::_init(StrView filename, StrView args)
 #if SGE_OS_WINDOWS
 
 
+#if 0
 Shell::Shell(StrView filename)
 {
 	_init(filename, "");
@@ -147,6 +148,8 @@ void Shell::clear()
 
 	_shExecInfo = { 0 };
 }
+#endif // 0
+
 
 #elif SGE_OS_LINUX
 

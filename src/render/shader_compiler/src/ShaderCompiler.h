@@ -123,7 +123,7 @@ protected:
 			parser.readFile(info, shaderFilename);
 
 			auto jsonFilename = Fmt("{}/info.json", outputPath);
-			JsonUtil::writeFileIfChanged(jsonFilename, info, false);
+			JsonUtil::writeFileIfChanged(jsonFilename, info, false, false);
 		}
 
 		permutationCompile(outputPath);

@@ -38,8 +38,8 @@ ifneq ("$(wildcard $(SHADER_MAKE_ROOT))", "")
 
 all: project_compile_shader_make
 project_compile_shader_make: $(SHADER_FILE_ROOT) $(SHADER_MAKE_ROOT)
-	@echo === project_compile_shader_make
-	@echo --- input shader --- $(SHADER_FILE_PATH)
+#@	@echo === project_compile_shader_make
+	@echo --- compile shader --- $(SHADER_FILE_PATH)
 	$(SGE_MAKE) -C $(SHADER_BIN_ROOT)
 #@echo SHADER_MAKE_ROOT --- $(SHADER_MAKE_ROOT)
 
@@ -48,8 +48,8 @@ else
 
 all: $(SHADER_MAKE_ROOT)
 $(SHADER_MAKE_ROOT): $(SHADER_FILE_ROOT)
-	@echo === sgeShaderCompiler
-	@echo --- input shader --- $(SHADER_FILE_PATH)
+#@	@echo === sgeShaderCompiler
+	@echo --- compile shader --- $(SHADER_FILE_PATH)
 	$(sgeShaderCompiler) -cwd="$(PROJECT_ROOT)" -file="$(SHADER_FILE_PATH)" -generateMake
 #$(SGE_MAKE) -C $(SHADER_BIN_ROOT)
 #@echo SHADER_MAKE_ROOT --- $(SHADER_MAKE_ROOT)

@@ -47,6 +47,7 @@ SPtr<Shader> CompileShader::compileIfNotExist(Shader* shader, const Permutations
 	if (isExist)
 		return rdr->createShader(shader, permuts);
 
+	SGE_LOG("--- Compile shader permutation: {}", shader->filename());
 	{
 		String args;
 		args.reserve(512);

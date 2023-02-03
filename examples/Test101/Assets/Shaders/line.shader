@@ -55,7 +55,7 @@ float4 ps_main(PixelIn i) : SV_TARGET {
 	//float4 color = {1, 1, 1, 1}; 
 	//return color;
 	#if	ENABLE_feature
-	return float4(1, 1, 1, 1);
+	return float4(0, 1, 1, 1);
 	#else
 	return i.color;
 	#endif

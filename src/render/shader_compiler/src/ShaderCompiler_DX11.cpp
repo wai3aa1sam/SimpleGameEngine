@@ -141,7 +141,7 @@ void ShaderCompiler_DX11::compile(StrView outPath, ShaderStageMask shaderStage, 
 	auto bytecodeSpan = Util::toSpan(bytecode);
 
 	auto outFilename = Fmt("{}/{}.bin", outPath, profile);
-	File::writeFile(outFilename, bytecodeSpan, false);
+	File::writeFile(outFilename, bytecodeSpan, false, false);
 
 	_reflect(outFilename, bytecodeSpan, shaderStage, profile);
 }
@@ -168,7 +168,7 @@ void ShaderCompiler_DX11::_reflect(StrView outFilename, ByteSpan bytecode, Shade
 
 	{
 		auto jsonFilename = Fmt("{}.json", outFilename);
-		JsonUtil::writeFileIfChanged(jsonFilename, outInfo, false);
+		JsonUtil::writeFileIfChanged(jsonFilename, outInfo, false, false);
 	}
 }
 

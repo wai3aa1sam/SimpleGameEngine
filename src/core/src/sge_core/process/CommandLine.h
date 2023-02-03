@@ -13,7 +13,7 @@ public:
 	void execute(StrView cmd);
 
 private:
-	Shell _shell;
+	Process _proc;
 };
 
 }

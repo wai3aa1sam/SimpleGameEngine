@@ -58,6 +58,7 @@ private:
 	#endif // SGE_OS_WINDOWS
 };
 
+#if 0
 class Shell : public NonCopyable
 {
 public:
@@ -87,6 +88,8 @@ private:
 	#error "unknown-platform"
 	#endif // SGE_OS_WINDOWS
 };
+#endif // 0
+
 
 
 

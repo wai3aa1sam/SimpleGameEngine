@@ -1,6 +1,8 @@
 #pragma once
 #define SGE_MATH_USE_SSE 1
 
+#define SGE_ENABLE_PROFILER 1
+
 #if _DEBUG
 
 #define SGE_BUILD_CONFIG Debug
