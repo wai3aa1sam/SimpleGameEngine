@@ -1,10 +1,12 @@
 # SimpleGameEngine
 - cloned from https://github.com/SimpleTalkCpp/SimpleGameEngine with extra features
+- open tracy profiler / turn off profiler config to prevent process memory keep increasing
 
 ## Features
 - [Boids](#Boids)
 - [Continuous LOD Terrain](#Continous_LOD_Terrain)
 - [JobSystem](#JobSystem)
+- [ShaderCompiler](#ShaderCompiler)
 
 ## Boids
 - 10000 objects in scene with ~60fps when separation is on, ~35fps in default
@@ -42,7 +44,15 @@
 - delay 1 frame with 30000 boids object 
 ![30000-boids](https://user-images.githubusercontent.com/120044193/212269586-9a200c7f-1f0e-442e-80fb-9c6c6af28c2a.jpg)
 
+## ShaderCompiler
+
+- hot-reload
+- glslc for spirv support
+- shader permutation/variant
+
 ## How to Build 
+
+- donwload vulkan sdk and add glslc to environment variable path
 
 ### Build on Windows
 ```
