@@ -270,8 +270,8 @@ private:
 	template<class FUNC>
 	void _ctor(FUNC&& func)
 	{
-		using Func		= FUNC; //std::decay_t<FUNC>;
-		using Functor	= Functor<FUNC>;
+		using Func		= std::decay_t<FUNC>;
+		using Functor	= Functor<Func>;
 		staticCheck<Functor>();
 		
 		auto* buf	= _localBuf.alloc(sizeof(Functor));
@@ -336,14 +336,14 @@ private:
 	class Functor final : public IFunctor
 	{
 	public:
-		//template<typename FUNCTOR>
-		//Functor(FUNCTOR&& func)
-		//	: _func(std::forward<FUNCTOR>(func))
-		//{}
-
-		Functor(FUNC func)
-			: _func(func)
+		template<typename FUNCTOR>
+		Functor(FUNCTOR&& func)
+			: _func(std::forward<FUNCTOR>(func))
 		{}
+
+		/*Functor(FUNC func)
+			: _func(func)
+		{}*/
 
 		~Functor()
 		{

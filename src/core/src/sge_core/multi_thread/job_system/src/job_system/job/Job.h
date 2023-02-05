@@ -27,8 +27,8 @@ struct JobInfo
 	void clear() { batchID = 0; batchOffset = 0; batchEnd = 0; }
 };
 
-//using JobFunction = Function_T<void(const JobArgs&), 32, s_kAlignment, false>;
-using JobFunction = std::function<void(JobArgs&)>;
+using JobFunction = Function_T<void(const JobArgs&), 32, s_kAlignment, false>;
+//using JobFunction = std::function<void(JobArgs&)>;
 
 class alignas(s_kCacheLine) Job //: public NonCopyable
 {
