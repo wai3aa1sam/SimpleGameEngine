@@ -187,11 +187,11 @@ bool ImGui_SGE::onUIMouseEvent(UIMouseEvent& ev) {
 		} break;
 
 		case Type::Down: {
-			io.AddMouseButtonEvent(_mouseButton(ev.pressedButtons), true);
+			io.AddMouseButtonEvent(_mouseButton(ev.button), true);
 		} break;
 
 		case Type::Up: {
-			io.AddMouseButtonEvent(_mouseButton(ev.pressedButtons), false);
+			io.AddMouseButtonEvent(_mouseButton(ev.button), false);
 		} break;
 
 		case Type::Scroll: {

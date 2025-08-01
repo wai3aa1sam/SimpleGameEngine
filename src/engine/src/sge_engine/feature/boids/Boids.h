@@ -148,7 +148,7 @@ private:
 		{
 			if (getBuf().isOtherOwning())
 			{
-				throw SGE_ERROR("thread{} is owning, thread {} is attempt to get", getBuf().ownThread, threadLocalId());
+				throw SGE_ERROR("thread{} is owning, thread {} is attempt to get", getBuf().ownThread.load(), threadLocalId());
 			}
 			getBuf().ownThread.store(threadLocalId());
 			return getBuf().buf;

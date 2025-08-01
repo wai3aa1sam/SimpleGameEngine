@@ -17,7 +17,7 @@
 	template<TEMPLATE_ARGS> \
 	struct fmt::formatter<sge::CLASS> { \
 		auto parse(fmt::format_parse_context& ctx) { return ctx.begin(); } \
-		auto format(const sge::CLASS& v, fmt::format_context& ctx) { \
+		auto format(const sge::CLASS& v, fmt::format_context& ctx) const { \
 			v.onFormat(ctx); \
 			return ctx.out(); \
 		} \
@@ -32,7 +32,7 @@
 	template<> \
 	struct fmt::formatter<sge::T> { \
 		auto parse(fmt::format_parse_context& ctx) { return ctx.begin(); } \
-		auto format(const sge::T& v, fmt::format_context& ctx) { \
+		auto format(const sge::T& v, fmt::format_context& ctx) const { \
 			return fmt::format_to(ctx.out(), "{}", sge::enumStr(v)); \
 		} \
 	}; \
@@ -44,7 +44,7 @@
 	template<> \
 	struct fmt::formatter<sge::T> { \
 		auto parse(fmt::format_parse_context& ctx) { return ctx.begin(); } \
-		auto format(const sge::T& v, fmt::format_context& ctx) { \
+		auto format(const sge::T& v, fmt::format_context& ctx) const { \
 			return fmt::format_to(ctx.out(), "{}", sge::enumInt(v)); \
 		} \
 	}; \

@@ -3,6 +3,7 @@
 #include <imgui.h>
 #include <sge_render/textures/Texture.h>
 #include <sge_render/shader/Material.h>
+#include <sge_render/vertex/VertexLayoutManager.h>
 
 namespace sge {
 

@@ -19,7 +19,7 @@ namespace EditorUI {
 	{
 		return ImGui::DragFloat(	label, v, v_speed, v_min, v_max, 
 									showMixedValue ? mixedValueFormat : floatFormat, 
-									v_power);
+									ImGuiInputTextFlags_None);
 	}
 
 	inline float InputFloat(const char* label, float* v) {

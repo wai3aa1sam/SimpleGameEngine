@@ -2,6 +2,8 @@
 #include "EditorLayer.h"
 
 namespace sge {
+static bool s_tempIsToogleToBoids = false;
+
 
 #if 0
 #pragma mark --- EditorLayer_Base-Impl ---
@@ -101,7 +103,9 @@ void EditorLayer::create()
 		EngineContext::instance()->registerComponentType<CBoids>();
 		_boidsEnt = _scene.addEntity("Boids");
 		auto* cBoids = _boidsEnt->addComponent<CBoids>();
-		cBoids->_boids.start();
+		auto& boids = cBoids->_boids;
+		boids._setting.objectCount = 2000;
+		boids.start();
 	}
 
 	{
@@ -113,9 +117,10 @@ void EditorLayer::create()
 		Image img;
 		img.loadPngFile("Assets/Terrain/TerrainTest/TerrainHeight_Small.png");
 
-		terrainDesc.patchCount = { 8, 8 };
-
+		terrainDesc.patchCount = { 16, 16 };
+		
 		terrainDesc.heightMap = &img;
+		cTerrain->_terrain._lodFactor = 3;
 		cTerrain->_terrain.create(terrainDesc);
 	}
 }
@@ -123,9 +128,14 @@ void EditorLayer::create()
 void EditorLayer::onUpdate()
 {
 	SGE_PROFILE_SCOPED;
-	
-	auto* cBoids = _boidsEnt->getComponent<CBoids>(); (void)cBoids;
-	cBoids->_boids.update();
+
+	{
+		auto* cBoids = _boidsEnt->getComponent<CBoids>(); (void)cBoids;
+		auto& boids = cBoids->_boids;
+		boids._enableUpdate = s_tempIsToogleToBoids;
+		boids._enableRender = s_tempIsToogleToBoids;
+		boids.update();
+	}
 }
 
 void EditorLayer::onRender(RenderContext& rdCtx_, RenderData& rdData_)
@@ -136,7 +146,7 @@ void EditorLayer::onRender(RenderContext& rdCtx_, RenderData& rdData_)
 	auto& rdReq = getRenderRequest(); SGE_UNUSED(rdReq);
 	auto& rdData = rdData_; SGE_UNUSED(rdData);
 	const auto& clientRect = *rdData.clientRect; SGE_UNUSED(clientRect);
-	
+
 	_camera.setViewport(clientRect);
 	rdReq.setCamera(_camera);
 
@@ -147,7 +157,7 @@ void EditorLayer::onRender(RenderContext& rdCtx_, RenderData& rdData_)
 
 	rdReq.clearFrameBuffers()->setColor({0, 0, 0.2f, 1});
 
-#if 0
+	#if 0
 	{// debug culling
 		auto fov = _camera.fov();
 		_camera.setFov(fov / 2);
@@ -170,15 +180,21 @@ void EditorLayer::onRender(RenderContext& rdCtx_, RenderData& rdData_)
 
 	//		_terrain.render(_renderRequest);
 
-#else
+	#else
 
-	auto* cTerrain = _terrainEnt->getComponent<CTerrain>(); (void)cTerrain;
-	//cTerrain->_terrain.render(rdReq);
+	if (s_tempIsToogleToBoids)
+	{
+		auto* cBoids = _boidsEnt->getComponent<CBoids>(); (void)cBoids;
+		cBoids->_boids.render(rdReq);
+	}
+	else
+	{
+		auto* cTerrain = _terrainEnt->getComponent<CTerrain>(); (void)cTerrain;
+		cTerrain->_terrain.render(rdReq);
+	}
 
-	auto* cBoids = _boidsEnt->getComponent<CBoids>(); (void)cBoids;
-	cBoids->_boids.render(rdReq);
 
-#endif // 0
+	#endif // 0
 }
 
 void EditorLayer::onRenderGUI(RenderContext& rdCtx_, RenderData& rdData_)
@@ -189,6 +205,17 @@ void EditorLayer::onRenderGUI(RenderContext& rdCtx_, RenderData& rdData_)
 	auto& rdReq = getRenderRequest(); SGE_UNUSED(rdReq);
 	auto& rdData = rdData_; SGE_UNUSED(rdData);
 
+	#if 0
+
+	#endif // 0
+
+	{
+		ImGui::Begin("Permutation Test");
+		ImGui::Checkbox("toggle to terrain / boids", &s_tempIsToogleToBoids);
+		ImGui::End();
+	}
+	
+	#if 0
 	{
 		ImGui::Begin("Permutation Test");
 
@@ -210,9 +237,11 @@ void EditorLayer::onRenderGUI(RenderContext& rdCtx_, RenderData& rdData_)
 		{
 			_lineMaterial->clearPermutation();
 		}
-		
+
 		ImGui::End();
 	}
+	#endif // 0
+
 
 	_hierarchyWindow.draw(rdReq, _scene);
 	_inspectorWindow.draw(rdReq, _scene);

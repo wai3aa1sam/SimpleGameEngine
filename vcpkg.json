@@ -1,0 +1,26 @@
+{
+    "name": "simple-game-engine",
+    "version-semver": "1.0.0",
+    "builtin-baseline":"6672bab62b2c351cf0ce4c578fd2ec2490610586",
+
+    "dependencies": [
+      { "name": "fmt" }
+      , { "name": "tracy" }
+      , { "name": "eastl" }
+      , { "name": "libpng" }
+      , { "name": "stb" }
+      , { "name": "nlohmann-json" }
+      , { "name": "glew" }
+      , { "name": "imgui", "features": ["docking-experimental"] }
+    ],
+
+    "overrides": [ 
+        { "name": "fmt",                                    "version": "10.2.1#2" }
+        , { "name": "tracy",                                "version": "0.11.1#1" }
+        , { "name": "eastl",                                "version": "3.21.12#0" }
+        , { "name": "libpng",                               "version": "1.6.43#2" }
+        , { "name": "stb",                                  "version": "2023-04-11#1" }
+        , { "name": "nlohmann-json",                        "version": "3.11.3#1" }
+        , { "name": "imgui",                                "version": "1.90.7#1" }
+    ]
+  }

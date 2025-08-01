@@ -175,7 +175,7 @@ inline DependencyManager::~DependencyManager()
 
 inline void DependencyManager::printRunAfter()
 {
-	SGE_LOG("=== Dependency Graph: X RunAfter Y");
+	//SGE_LOG("=== Dependency Graph: X RunAfter Y");
 
 	auto* dm = instance();
 	auto& depInfo = dm->depInfo();
@@ -208,7 +208,7 @@ inline void DependencyManager::printRunAfter()
 
 inline void DependencyManager::printRunBefore()
 {
-	SGE_LOG("=== Dependency Graph: X RunBefore Y");
+	//SGE_LOG("=== Dependency Graph: X RunBefore Y");
 
 	auto* dm = instance();
 	auto& depInfo = dm->depInfo();
@@ -282,7 +282,7 @@ inline void DependencyManager::beginCapture()
 	auto& depInfo = dm->_depInfoStack.emplace_back(); (void)depInfo;
 	dm->_beginCount.fetch_add(1);
 
-	SGE_LOG("=== DependencyManager::begin()");
+	//SGE_LOG("=== DependencyManager::begin()");
 }
 
 inline void DependencyManager::endCapture(bool verbose)
@@ -294,7 +294,7 @@ inline void DependencyManager::endCapture(bool verbose)
 
 	if (verbose)
 	{
-		SGE_LOG("=== DependencyManager::end(), Graph: X RunAfter Y");
+		//SGE_LOG("=== DependencyManager::end(), Graph: X RunAfter Y");
 		{
 			auto lock_depTable = depInfo.table.scopedULock();
 			auto& depTable = *lock_depTable.operator->();
@@ -325,7 +325,7 @@ inline void DependencyManager::endCapture(bool verbose)
 
 	dm->_depInfoStack.pop_back();
 	dm->_beginCount.fetch_sub(1);
-	SGE_LOG("=== DependencyManager end scope");
+	//SGE_LOG("=== DependencyManager end scope");
 
 }
 
@@ -356,7 +356,7 @@ inline void DependencyManager::addVertex(const Job* job)
 		auto dep_pair = depTable.find(job);
 		if (dep_pair != depTable.end())
 		{
-			SGE_LOG("job: {} already exist", job->name());
+			//SGE_LOG("job: {} already exist", job->name());
 			return;
 		}
 		depTable[job];
@@ -406,7 +406,7 @@ void DependencyManager::XRunAfterY(const Job* x, JOB&&... y)
 	auto dep_pair = depTable.find(x);
 	if (dep_pair == depTable.end())
 	{
-		SGE_LOG("job: {} is not exit", x->name());
+		//SGE_LOG("job: {} is not exit", x->name());
 		return;
 	}
 
@@ -458,7 +458,7 @@ void DependencyManager::XRunBeforeY(const Job* x, JOB&&... y)
 		auto dep_pair = depTable.find(x);
 		if (dep_pair == depTable.end())
 		{
-			SGE_LOG("job: {} is not exit", x->name());
+			//SGE_LOG("job: {} is not exit", x->name());
 			return;
 		}
 
@@ -524,7 +524,7 @@ inline void DependencyManager::jobExecute(const Job* job)
 	auto dep_pair = depTable.find(job);
 	if (dep_pair == depTable.end())
 	{
-		//SGE_LOG("job: {} is not exit", x->name());
+		////SGE_LOG("job: {} is not exit", x->name());
 		return;
 	}
 
@@ -575,7 +575,7 @@ inline void DependencyManager::jobFinish(const Job* job)
 	auto dep_pair = depTable.find(job);
 	if (dep_pair == depTable.end())
 	{
-		//SGE_LOG("job: {} is not exit", x->name());
+		////SGE_LOG("job: {} is not exit", x->name());
 		return;
 	}
 
@@ -685,19 +685,19 @@ inline void DependencyManager::_print_impl(const JobInfoTable& depTable, intptr_
 				buf += "";
 			idx++;
 		}
-		SGE_LOG("{}: {}", pair.first->name(), buf);
+		//SGE_LOG("{}: {}", pair.first->name(), buf);
 	}
 }
 
 inline void DependencyManager::_print_info(Vector<JobInfo*>& infos)
 {
-	SGE_LOG("=== Job Info");
+	//SGE_LOG("=== Job Info");
 	auto* dm = instance();
 
 	dm->_sort(infos);
-	for (auto& jobInfo : infos)
+	//for (auto& jobInfo : infos)
 	{
-		SGE_LOG("FinishOrder: {}, Job: {}, Start Order: {}, Finish Count: {}", jobInfo->finishOrder, jobInfo->job->name(), jobInfo->startOrder, jobInfo->finishCount);
+		//SGE_LOG("FinishOrder: {}, Job: {}, Start Order: {}, Finish Count: {}", jobInfo->finishOrder, jobInfo->job->name(), jobInfo->startOrder, jobInfo->finishCount);
 	}
 }
 
@@ -710,7 +710,7 @@ inline DependencyManager::JobInfo* DependencyManager::_find(JobInfoTable& table,
 	{
 		if (verbose)
 		{
-			SGE_LOG("job: {} is not exist", job->name());
+			//SGE_LOG("job: {} is not exist", job->name());
 		}
 		return nullptr;
 	}
@@ -730,7 +730,7 @@ inline DependencyManager::JobInfo* DependencyManager::_createIfNotExist(JobInfoT
 		{
 			if (verbose)
 			{
-				SGE_LOG("job: {} is already exist", job->name());
+				//SGE_LOG("job: {} is already exist", job->name());
 			}
 			return nullptr;
 		}

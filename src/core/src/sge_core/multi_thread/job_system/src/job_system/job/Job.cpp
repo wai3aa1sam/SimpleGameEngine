@@ -105,8 +105,8 @@ size_t	Job::runAfterCount() const		{ return _storage.dep._runAfterThis.size(); }
 
 void Job::print() const
 {
-	atomicLog("job -> jobRemainCount: {}", _storage._jobRemainCount);
-	atomicLog("job -> dependencyCount: {}", dependencyCount());
+	//atomicLog("job -> jobRemainCount: {}", _storage._jobRemainCount);
+	//atomicLog("job -> dependencyCount: {}", dependencyCount());
 }
 
 void Job::init(const Task& func, const Info& info, Job* parent)

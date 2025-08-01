@@ -200,7 +200,7 @@ void ShaderCompiler_DX11::_reflect_inputs(ShaderStageInfo& outInfo, ID3D11Shader
 		case D3D_REGISTER_COMPONENT_UINT32:		dataType.append("UInt8");	break;
 		case D3D_REGISTER_COMPONENT_SINT32:		dataType.append("Int32");	break;
 		case D3D_REGISTER_COMPONENT_FLOAT32:	dataType.append("Float32");	break;
-		default: throw SGE_ERROR("unsupported component type {}", paramDesc.ComponentType);
+		default: throw SGE_ERROR("unsupported component type {}", enumInt(paramDesc.ComponentType));
 		}
 
 		auto componentCount = BitUtil::count1(paramDesc.Mask);
@@ -268,7 +268,7 @@ void ShaderCompiler_DX11::_reflect_constBuffers(ShaderStageInfo& outInfo, ID3D11
 				case D3D_SVT_UINT8:	dataType.append("UInt8");	break;
 				case D3D_SVT_FLOAT: dataType.append("Float32");	break;
 				case D3D_SVT_DOUBLE:dataType.append("Float64");	break;
-				default: throw SGE_ERROR("unsupported type {}", varType.Type);
+				default: throw SGE_ERROR("unsupported type {}", enumInt(varType.Type));
 				}
 
 				switch (varType.Class) {
@@ -288,7 +288,7 @@ void ShaderCompiler_DX11::_reflect_constBuffers(ShaderStageInfo& outInfo, ID3D11
 					FmtTo(dataType, "_{}x{}", varType.Rows, varType.Columns); 
 					outVar.rowMajor = true;
 				}break;
-				default: throw SGE_ERROR("unsupported Class {}", varType.Class);
+				default: throw SGE_ERROR("unsupported Class {}", enumInt(varType.Class));
 				}
 
 				if (!enumTryParse(outVar.dataType, dataType)) {
@@ -330,7 +330,7 @@ void ShaderCompiler_DX11::_reflect_textures(ShaderStageInfo& outInfo, ID3D11Shad
 		case D3D_SRV_DIMENSION_TEXTURE2DARRAY:	outTex.dataType = DataType::Texture2DArray;   break;
 		case D3D_SRV_DIMENSION_TEXTURECUBEARRAY:outTex.dataType = DataType::TextureCubeArray; break;
 			//----
-		default: throw SGE_ERROR("unsupported texture dimension {}", resDesc.Dimension);
+		default: throw SGE_ERROR("unsupported texture dimension {}", enumInt(resDesc.Dimension));
 		}
 	}
 }
